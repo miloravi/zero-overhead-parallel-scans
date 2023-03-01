@@ -13,3 +13,5 @@ Our adaptation of the three-phase reduce-then-scan algorithm is even faster,
 and is the fastest parallel scan on any number of threads.
 
 The scan algorithms are implemented using the [work-assisting scheduler](https://github.com/ivogabe/workassisting).
+
+To run the benchmarks, the Rust compiler and cargo need to be installed. Furthermore gnuplot needs to be installed, as the benchmark code automatically generates charts of the results. The benchmarks can be run with `cargo run`. Depending on the processor, it may be needed to tune `AFFINITY_MAPPING` in `src/utils/thread_pinning.rs`. This specifies the order in which the cores of the processor are used.
