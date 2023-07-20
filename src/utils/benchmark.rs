@@ -9,6 +9,7 @@ pub struct Benchmarker<T> {
   max_speedup: u32,
   max_threads: u32,
   reference_time: u64,
+  reference_time_cpp: Option<u64>,
   expected: T,
   output: Vec<(String, u32, Option<u32>, bool, Vec<f32>)>
 }
@@ -17,13 +18,12 @@ const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum ChartStyle {
-  Left,
-  LeftWithKey,
-  Right
+  WithKey,
+  WithoutKey
 }
 
 pub fn benchmark<T: Debug + Eq, Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, reference: Ref) -> Benchmarker<T> {
-  benchmark_with_max_speedup(chart_style, name, reference, 16, 8)
+  benchmark_with_max_speedup(chart_style, name, reference, 16, 6)
 }
 
 pub fn benchmark_with_max_speedup<T: Debug + Eq, Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, reference: Ref, max_threads: u32, max_speedup: u32) -> Benchmarker<T> {
@@ -31,7 +31,7 @@ pub fn benchmark_with_max_speedup<T: Debug + Eq, Ref: FnMut() -> T>(chart_style:
   println!("Benchmark {}", name);
   let (expected, reference_time) = time(50, reference);
   println!("Sequential   {} ms", reference_time / 1000);
-  Benchmarker{ chart_style, name: name.to_owned(), max_threads, max_speedup, reference_time, expected, output: vec![] }
+  Benchmarker{ chart_style, name: name.to_owned(), max_threads, max_speedup, reference_time, reference_time_cpp: None, expected, output: vec![] }
 }
 
 impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
@@ -53,7 +53,7 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
     self
   }
 
-  pub fn cpp_sequential(self, cpp_enabled: bool, name: &str, cpp_name: &str, size: usize) -> Self {
+  pub fn cpp_sequential(mut self, cpp_enabled: bool, name: &str, cpp_name: &str, size: usize) -> Self {
     if !cpp_enabled { return self; }
 
     let child = std::process::Command::new("./reference-cpp/build/main")
@@ -72,6 +72,8 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
       println!("{}", name);
       println!("{:12} {} ms ({:.2}x)", "", time / 1000, relative);
     }
+
+    self.reference_time_cpp = Some(time);
 
     self
   }
@@ -110,67 +112,114 @@ impl<T> Drop for Benchmarker<T> {
     std::fs::create_dir_all("./results").unwrap();
     let filename = "./results/".to_owned() + &self.name.replace(' ', "_").replace('(', "").replace(')', "").replace('=', "_").replace('/', "_");
 
+    // Create .gnuplot file
     let file_gnuplot = File::create(filename.clone() + ".gnuplot").unwrap();
-    let mut gnuplot = BufWriter::new(&file_gnuplot);
-    writeln!(&mut gnuplot, "set title \"{}\"", self.name).unwrap();
-    writeln!(&mut gnuplot, "set terminal pdf size {},2.6", if self.chart_style == ChartStyle::Right {2.3} else {2.6}).unwrap();
-    writeln!(&mut gnuplot, "set output \"{}\"", filename.clone() + ".pdf").unwrap();
-    if self.chart_style == ChartStyle::LeftWithKey {
-      writeln!(&mut gnuplot, "set key on").unwrap();
-      writeln!(&mut gnuplot, "set key top left Left reverse").unwrap();
+    let mut writer_gnuplot = BufWriter::new(&file_gnuplot);
+    writeln!(&mut writer_gnuplot, "set title \"{}\"", self.name).unwrap();
+    writeln!(&mut writer_gnuplot, "set terminal pdf size 3.2,2.7").unwrap();
+    writeln!(&mut writer_gnuplot, "set output \"{}\"", filename.clone() + ".pdf").unwrap();
+    if self.chart_style == ChartStyle::WithKey {
+      writeln!(&mut writer_gnuplot, "set key on").unwrap();
+      writeln!(&mut writer_gnuplot, "set key top left Left reverse").unwrap();
     } else {
-      writeln!(&mut gnuplot, "set key off").unwrap();
+      writeln!(&mut writer_gnuplot, "set key off").unwrap();
     }
-    writeln!(&mut gnuplot, "set xrange [1:{}]", self.max_threads).unwrap();
-    writeln!(&mut gnuplot, "set xtics (1, 4, 8, 12, 16, 20, 24, 28, 32)").unwrap();
-    writeln!(&mut gnuplot, "set xlabel \"Threads\"").unwrap();
-    writeln!(&mut gnuplot, "set yrange [0:{}]", self.max_speedup).unwrap();
-    if self.chart_style == ChartStyle::Right {
-      writeln!(&mut gnuplot, "set format y \"\"").unwrap();
-    } else {
-      writeln!(&mut gnuplot, "set ylabel \"Speedup\"").unwrap();
-    }
+    writeln!(&mut writer_gnuplot, "set xrange [1:{}]", self.max_threads).unwrap();
+    writeln!(&mut writer_gnuplot, "set xtics (1, 4, 8, 12, 16, 20, 24, 28, 32)").unwrap();
+    writeln!(&mut writer_gnuplot, "set xlabel \"Threads\"").unwrap();
+    writeln!(&mut writer_gnuplot, "set yrange [0:{}]", self.max_speedup).unwrap();
+    writeln!(&mut writer_gnuplot, "set ylabel \"Speedup\"").unwrap();
 
-    write!(&mut gnuplot, "plot ").unwrap();
+    write!(&mut writer_gnuplot, "plot ").unwrap();
     for (idx, result) in self.output.iter().enumerate() {
       if idx != 0 {
-        write!(&mut gnuplot, ", \\\n  ").unwrap();
+        write!(&mut writer_gnuplot, ", \\\n  ").unwrap();
       }
-      write!(&mut gnuplot, "'{}.dat' using 1:{} title \"{}\" ls {} lw 1 pointsize {}", filename, idx+2, result.0, result.1, if result.3 { 0.7 } else { 0.6 }).unwrap();
+      write!(&mut writer_gnuplot, "'{}.dat' using 1:{} title \"{}\" ls {} lw 1 pointsize {}", filename, idx+2, result.0, result.1, if result.3 { 0.7 } else { 0.6 }).unwrap();
       if let Some(point_type) = result.2 {
-        write!(&mut gnuplot, " pointtype {}", point_type).unwrap();
+        write!(&mut writer_gnuplot, " pointtype {}", point_type).unwrap();
       }
-      write!(&mut gnuplot, " with linespoints").unwrap();
+      write!(&mut writer_gnuplot, " with linespoints").unwrap();
     }
-    writeln!(&mut gnuplot, "").unwrap();
+    writeln!(&mut writer_gnuplot, "").unwrap();
+    drop(writer_gnuplot);
 
+    // Create .dat file with data points
     let file_data = File::create(filename.clone() + ".dat").unwrap();
-    let mut writer = BufWriter::new(&file_data);
-    write!(&mut writer, "# Benchmark {}\n", self.name).unwrap();
-    write!(&mut writer, "# Speedup compared to a sequential implementation.\n").unwrap();
+    let mut writer_data = BufWriter::new(&file_data);
+    write!(&mut writer_data, "# Benchmark {}\n", self.name).unwrap();
+    write!(&mut writer_data, "# Speedup compared to a sequential implementation.\n").unwrap();
     
     // Header
-    write!(&mut writer, "# NCPU").unwrap();
+    write!(&mut writer_data, "# NCPU").unwrap();
     for result in &self.output {
-      write!(&mut writer, "\t{}", result.0).unwrap();
+      write!(&mut writer_data, "\t{}", result.0).unwrap();
     }
-    write!(&mut writer, "\n").unwrap();
+    write!(&mut writer_data, "\n").unwrap();
 
     for (idx, thread_count) in THREAD_COUNTS.iter().enumerate() {
-      write!(&mut writer, "{}", thread_count).unwrap();
+      write!(&mut writer_data, "{}", thread_count).unwrap();
       for result in &self.output {
         if idx < result.4.len() {
-          write!(&mut writer, "\t{}", result.4[idx]).unwrap();
+          write!(&mut writer_data, "\t{}", result.4[idx]).unwrap();
         } else {
-          write!(&mut writer, "\t").unwrap();
+          write!(&mut writer_data, "\t").unwrap();
         }
       }
-      write!(&mut writer, "\n").unwrap();
+      write!(&mut writer_data, "\n").unwrap();
     }
+    drop(writer_data);
 
     _ = std::process::Command::new("gnuplot")
-      .arg(filename + ".gnuplot")
+      .arg(filename.clone() + ".gnuplot")
       .spawn();
+
+    // Create .tex file with table of results
+    let file_tex = File::create(filename.clone() + ".tex").unwrap();
+    let mut writer_tex = BufWriter::new(&file_tex);
+
+    // Note that { is escaped as {{ in Rust, } as }} and \ as \\.
+
+    // begin tabular, specify columns
+    write!(&mut writer_tex, "\\begin{{tabular}}{{| l ").unwrap();
+    for thread_count in THREAD_COUNTS {
+      if thread_count > self.max_threads as usize { break; }
+      write!(&mut writer_tex, "| r").unwrap();
+    }
+    write!(&mut writer_tex, "|}}\n").unwrap();
+
+    // Table header
+    write!(&mut writer_tex, "\\multicolumn{{1}}{{r|}}{{\\textbf{{Number of threads}}}}").unwrap();
+    for thread_count in THREAD_COUNTS {
+      if thread_count > self.max_threads as usize { break; }
+      write!(&mut writer_tex, " & \\multicolumn{{1}}{{c|}}{{\\textbf{{ {} }}}}", thread_count).unwrap();
+    }
+    write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
+
+    // Sequential reference times
+    for (name, o_time) in [("Sequential (Rust)", Some(self.reference_time)), ("Sequential (C++)", self.reference_time_cpp)] {
+      if let Some(time) = o_time {
+        let ms = time / 1000;
+        let time_columns = 2;
+        write!(&mut writer_tex, "{} & \\multicolumn{{1}}{{r}}{{ {:.2} }} & \\multicolumn{{ {} }}{{l |}}{{({} ms)}}", name, self.reference_time as f32 / time as f32, time_columns, ms).unwrap();
+        for &thread_count in THREAD_COUNTS.iter().skip(1 + time_columns) {
+          if thread_count > self.max_threads as usize { break; }
+          write!(&mut writer_tex, " &").unwrap();
+        }
+        write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
+      }
+    }
+
+    // Parallel times
+    for result in &self.output {
+      write!(&mut writer_tex, "{}", result.0).unwrap();
+      for value in &result.4 {
+        write!(&mut writer_tex, " & {:.2}", value).unwrap();
+      }
+      write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
+    }
+    write!(&mut writer_tex, "\\end{{tabular}}").unwrap();
+    drop(writer_tex);
   }
 }
 

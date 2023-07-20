@@ -20,7 +20,7 @@ pub fn run(cpp_enabled: bool) {
     let output = unsafe { utils::array::alloc_undef_u64_array(size) };
     let name = "Scan (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
     benchmark(
-        if size < SIZE { ChartStyle::LeftWithKey } else { ChartStyle::Right },
+        if size < SIZE { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
         &name,
         || reference_sequential_single(&input, &output)
       )
@@ -55,7 +55,7 @@ pub fn run(cpp_enabled: bool) {
         compute_output(&output)
       })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-sequential", size)
-      .cpp_parallel(cpp_enabled, "oneTBB", 9, None, "scan-tbb", size);
+      .cpp_parallel(cpp_enabled, "oneTBB", 1, None, "scan-tbb", size);
   }
 }
 

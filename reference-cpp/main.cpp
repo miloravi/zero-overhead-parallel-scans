@@ -1,7 +1,7 @@
 #include <chrono>
 #include <oneapi/tbb.h>
 
-#define RUNS 20
+#define RUNS 50
 
 uint randomize(uint64_t seed) {
   seed ^= seed << 13;

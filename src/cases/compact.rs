@@ -28,7 +28,7 @@ pub fn run(cpp_enabled: bool) {
       let name = "Compact (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ", r = 1/" + &ratio.to_string() + ")";
       let mask = ratio - 1; // Assumes ratio is a power of two
       benchmark(
-          if ratio == 2 { ChartStyle::Left } else { ChartStyle::Right },
+          if ratio == 2 { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
           &name,
           || reference_sequential_single(mask, &input, &output)
         )
@@ -69,7 +69,7 @@ pub fn run(cpp_enabled: bool) {
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
         .cpp_sequential(cpp_enabled, "Reference C++", &("compact-".to_owned() + &ratio.to_string() + "-sequential"), size)
-        .cpp_parallel(cpp_enabled, "oneTBB", 9, None, &("compact-".to_owned() + &ratio.to_string() + "-tbb"), size);
+        .cpp_parallel(cpp_enabled, "oneTBB", 1, None, &("compact-".to_owned() + &ratio.to_string() + "-tbb"), size);
     }
   }
 }
