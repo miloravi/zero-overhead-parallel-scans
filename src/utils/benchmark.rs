@@ -13,6 +13,8 @@ pub struct Benchmarker<T> {
   output: Vec<(String, u32, Option<u32>, bool, Vec<f32>)>
 }
 
+const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum ChartStyle {
   Left,
@@ -36,7 +38,7 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
   pub fn parallel<Par: FnMut(usize) -> T>(mut self, name: &str, chart_line_style: u32, point_type: Option<u32>, our: bool, mut parallel: Par) -> Self {
     println!("{}", name);
     let mut results = vec![];
-    for thread_count in [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32] {
+    for thread_count in THREAD_COUNTS {
       if thread_count > self.max_threads as usize {
         break;
       }
@@ -48,6 +50,57 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
       println!("  {:02} threads {} ms ({:.2}x)", thread_count, time / 1000, relative);
     }
     self.output.push((name.to_owned(), chart_line_style, point_type, our, results));
+    self
+  }
+
+  pub fn cpp_sequential(self, cpp_enabled: bool, name: &str, cpp_name: &str, size: usize) -> Self {
+    if !cpp_enabled { return self; }
+
+    let child = std::process::Command::new("./reference-cpp/build/main")
+      .arg(cpp_name)
+      .arg(size.to_string())
+      .output()
+      .expect("Reference sequential C++ implementation failed");
+  
+    let time_str = String::from_utf8_lossy(&child.stdout);
+    let time: u64 = time_str.trim().parse().expect("Unexpected output from reference C++ program");
+    let relative = self.reference_time as f32 / time as f32;
+
+    if name.len() <= 12 {
+      println!("{:12} {} ms ({:.2}x)", name, time / 1000, relative);
+    } else {
+      println!("{}", name);
+      println!("{:12} {} ms ({:.2}x)", "", time / 1000, relative);
+    }
+
+    self
+  }
+
+  pub fn cpp_parallel(mut self, cpp_enabled: bool, name: &str, chart_line_style: u32, point_type: Option<u32>, cpp_name: &str, size: usize) -> Self {
+    if !cpp_enabled { return self; }
+
+    println!("{}", name);
+    let mut results = vec![];
+    for thread_count in THREAD_COUNTS {
+      if thread_count > self.max_threads as usize {
+        break;
+      }
+
+      let child = std::process::Command::new("./reference-cpp/build/main")
+        .arg(cpp_name)
+        .arg(size.to_string())
+        .arg(thread_count.to_string())
+        .output()
+        .expect("Reference sequential C++ implementation failed");
+
+      let time_str = String::from_utf8_lossy(&child.stdout);
+      let time: u64 = time_str.trim().parse().expect(&("Unexpected output from reference C++ program: ".to_owned() + &time_str));
+      let relative = self.reference_time as f32 / time as f32;
+      results.push(relative);
+      println!("  {:02} threads {} ms ({:.2}x)", thread_count, time / 1000, relative);
+    }
+    self.output.push((name.to_owned(), chart_line_style, point_type, false, results));
+
     self
   }
 }
@@ -103,7 +156,7 @@ impl<T> Drop for Benchmarker<T> {
     }
     write!(&mut writer, "\n").unwrap();
 
-    for (idx, thread_count) in [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32].iter().enumerate() {
+    for (idx, thread_count) in THREAD_COUNTS.iter().enumerate() {
       write!(&mut writer, "{}", thread_count).unwrap();
       for result in &self.output {
         if idx < result.4.len() {
@@ -115,10 +168,9 @@ impl<T> Drop for Benchmarker<T> {
       write!(&mut writer, "\n").unwrap();
     }
 
-    std::process::Command::new("gnuplot")
+    _ = std::process::Command::new("gnuplot")
       .arg(filename + ".gnuplot")
-      .spawn()
-      .expect("gnuplot failed");
+      .spawn();
   }
 }
 

@@ -16,7 +16,7 @@ pub const SIZE: usize = 1024 * 1024 * 256;
 pub const BLOCK_COUNT: u64 = 32 * 8;
 pub const MIN_BLOCK_SIZE: u64 = 1024;
 
-pub fn run() {
+pub fn run(cpp_enabled: bool) {
   for size in [SIZE / 8, SIZE] {
     for ratio in [2, 8] {
       let input = create_input(size);
@@ -38,12 +38,6 @@ pub fn run() {
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
-        /*.parallel("Compact-then-concat", 3, Some(13), false, |thread_count| {
-          let output_count = AtomicUsize::new(0);
-          let task = compact_then_concat::create_task(mask, &input, &temp2, &temp1, &output, &output_count);
-          Workers::run(thread_count, task);
-          compute_output(&output, output_count.load(Ordering::Relaxed))
-        })*/
         .parallel("Reduce-then-scan", 5, None, false, |thread_count| {
           let output_count = AtomicUsize::new(0);
           let task = reduce_then_scan::create_task(mask, &input, &temp2, &output, &output_count);
@@ -62,24 +56,20 @@ pub fn run() {
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
-        /*.parallel("Our (compact-then-concat)", 2, Some(12), true, |thread_count| {
-          let output_count = AtomicUsize::new(0);
-          let task = our_compact_then_concat::create_task(mask, &input, &temp2, &temp1, &output, &output_count);
-          Workers::run(thread_count, task);
-          compute_output(&output, output_count.load(Ordering::Relaxed))
-        })*/
         .parallel("Assisted reduce-t.-scan", 4, None, true, |thread_count| {
           let output_count = AtomicUsize::new(0);
           let task = our_reduce_then_scan::create_task(mask, &input, &temp2, &output, &output_count);
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
-        .parallel("Our chained scan", 6, None, false, |thread_count| {
+        .parallel("Adaptive chained scan", 6, None, false, |thread_count| {
           let output_count = AtomicUsize::new(0);
           let task = our_chained::create_task(mask, &input, &temp3, &output, &output_count);
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
-        });
+        })
+        .cpp_sequential(cpp_enabled, "Reference C++", &("compact-".to_owned() + &ratio.to_string() + "-sequential"), size)
+        .cpp_parallel(cpp_enabled, "oneTBB", 9, None, &("compact-".to_owned() + &ratio.to_string() + "-tbb"), size);
     }
   }
 }

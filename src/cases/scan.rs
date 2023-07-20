@@ -13,7 +13,7 @@ mod scan_then_propagate;
 
 pub const SIZE: usize = 1024 * 1024 * 512;
 
-pub fn run() {
+pub fn run(cpp_enabled: bool) {
   for size in [SIZE / 8, SIZE] {
     let input = create_input(size);
     let mut temp = chained::create_temp();
@@ -49,11 +49,13 @@ pub fn run() {
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Our chained scan", 6, None, true, |thread_count| {
+      .parallel("Adaptive chained scan", 6, None, true, |thread_count| {
         let task = our_chained::init_single(&input, &temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
-      });
+      })
+      .cpp_sequential(cpp_enabled, "Reference C++", "scan-sequential", size)
+      .cpp_parallel(cpp_enabled, "oneTBB", 9, None, "scan-tbb", size);
   }
 }
 
