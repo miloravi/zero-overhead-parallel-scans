@@ -14,7 +14,7 @@ pub struct Benchmarker<T> {
   output: Vec<(String, u32, Option<u32>, bool, Vec<f32>)>
 }
 
-const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+pub const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum ChartStyle {
@@ -116,7 +116,7 @@ impl<T> Drop for Benchmarker<T> {
     let file_gnuplot = File::create(filename.clone() + ".gnuplot").unwrap();
     let mut writer_gnuplot = BufWriter::new(&file_gnuplot);
     writeln!(&mut writer_gnuplot, "set title \"{}\"", self.name).unwrap();
-    writeln!(&mut writer_gnuplot, "set terminal pdf size 3.2,2.7").unwrap();
+    writeln!(&mut writer_gnuplot, "set terminal pdf size 3.2,2.8").unwrap();
     writeln!(&mut writer_gnuplot, "set output \"{}\"", filename.clone() + ".pdf").unwrap();
     if self.chart_style == ChartStyle::WithKey {
       writeln!(&mut writer_gnuplot, "set key on").unwrap();
@@ -126,7 +126,7 @@ impl<T> Drop for Benchmarker<T> {
     }
     writeln!(&mut writer_gnuplot, "set xrange [1:{}]", self.max_threads).unwrap();
     writeln!(&mut writer_gnuplot, "set xtics (1, 4, 8, 12, 16, 20, 24, 28, 32)").unwrap();
-    writeln!(&mut writer_gnuplot, "set xlabel \"Threads\"").unwrap();
+    writeln!(&mut writer_gnuplot, "set xlabel \"Number of threads\"").unwrap();
     writeln!(&mut writer_gnuplot, "set yrange [0:{}]", self.max_speedup).unwrap();
     writeln!(&mut writer_gnuplot, "set ylabel \"Speedup\"").unwrap();
 
@@ -178,22 +178,28 @@ impl<T> Drop for Benchmarker<T> {
     let file_tex = File::create(filename.clone() + ".tex").unwrap();
     let mut writer_tex = BufWriter::new(&file_tex);
 
+    // Don't show high thread counts or thread counts between 8 and 16, as the results don't change that much there.
+    let table_thread_counts: Vec<usize> = THREAD_COUNTS
+      .iter()
+      .cloned()
+      .filter(|&thread_count| thread_count <= self.max_threads as usize && !(thread_count > 8 && thread_count < 16))
+      .collect();
+
     // Note that { is escaped as {{ in Rust, } as }} and \ as \\.
 
     // begin tabular, specify columns
-    write!(&mut writer_tex, "\\begin{{tabular}}{{| l ").unwrap();
-    for thread_count in THREAD_COUNTS {
-      if thread_count > self.max_threads as usize { break; }
-      write!(&mut writer_tex, "| r").unwrap();
+    write!(&mut writer_tex, "\\begin{{tabular}}{{|c  l").unwrap();
+    for _ in &table_thread_counts {
+      write!(&mut writer_tex, " | r").unwrap();
     }
-    write!(&mut writer_tex, "|}}\n").unwrap();
+    write!(&mut writer_tex, " |}}\n").unwrap();
 
     // Table header
-    write!(&mut writer_tex, "\\multicolumn{{1}}{{r|}}{{\\textbf{{Number of threads}}}}").unwrap();
-    for thread_count in THREAD_COUNTS {
-      if thread_count > self.max_threads as usize { break; }
+    write!(&mut writer_tex, "\\multicolumn{{2}}{{r|}}{{\\textbf{{Number of threads}}}}").unwrap();
+    for thread_count in &table_thread_counts[0 .. table_thread_counts.len() - 2] {
       write!(&mut writer_tex, " & \\multicolumn{{1}}{{c|}}{{\\textbf{{ {} }}}}", thread_count).unwrap();
     }
+    write!(&mut writer_tex, " & \\multicolumn{{2}}{{c|}}{{\\textbf{{ {} }} \\dots \\textbf{{ {} }}}}", table_thread_counts[table_thread_counts.len() - 2], table_thread_counts[table_thread_counts.len() - 1]).unwrap();
     write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
 
     // Sequential reference times
@@ -201,8 +207,8 @@ impl<T> Drop for Benchmarker<T> {
       if let Some(time) = o_time {
         let ms = time / 1000;
         let time_columns = 2;
-        write!(&mut writer_tex, "{} & \\multicolumn{{1}}{{r}}{{ {:.2} }} & \\multicolumn{{ {} }}{{l |}}{{({} ms)}}", name, self.reference_time as f32 / time as f32, time_columns, ms).unwrap();
-        for &thread_count in THREAD_COUNTS.iter().skip(1 + time_columns) {
+        write!(&mut writer_tex, "& {} & \\multicolumn{{1}}{{r}}{{ {:.2} }} & \\multicolumn{{ {} }}{{l |}}{{({} ms)}}", name, self.reference_time as f32 / time as f32, time_columns, ms).unwrap();
+        for &thread_count in table_thread_counts.iter().skip(1 + time_columns) {
           if thread_count > self.max_threads as usize { break; }
           write!(&mut writer_tex, " &").unwrap();
         }
@@ -212,13 +218,21 @@ impl<T> Drop for Benchmarker<T> {
 
     // Parallel times
     for result in &self.output {
-      write!(&mut writer_tex, "{}", result.0).unwrap();
-      for value in &result.4 {
-        write!(&mut writer_tex, " & {:.2}", value).unwrap();
+      let color_factor = if result.3 { 30 } else { 10 };
+      write!(&mut writer_tex, "\\rowcolor{{gnuplot{}!{}}}", result.1, color_factor).unwrap();
+      write!(&mut writer_tex, "$\\color{{gnuplot{}}}{{{}}}$", result.1, latex_symbol(result)).unwrap();
+      if result.3 {
+        write!(&mut writer_tex, " & \\textit{{{}}}", result.0).unwrap();
+      } else {
+        write!(&mut writer_tex, " & {}", result.0).unwrap();
+      }
+      for (idx, &value) in result.4.iter().enumerate() {
+        if THREAD_COUNTS[idx] > 8 && THREAD_COUNTS[idx] < 16 { continue; }
+        write!(&mut writer_tex, " & \\cellcolor{{gnuplot{}!{}}} {:.2}", result.1, color_factor, value).unwrap();
       }
       write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
     }
-    write!(&mut writer_tex, "\\end{{tabular}}").unwrap();
+    write!(&mut writer_tex, "\\end{{tabular}}\n").unwrap();
     drop(writer_tex);
   }
 }
@@ -232,4 +246,17 @@ pub fn time<T: Debug + Eq, F: FnMut() -> T>(runs: usize, mut f: F) -> (T, u64) {
   }
 
   (first, (timer.elapsed().as_micros() / runs as u128) as u64)
+}
+
+fn latex_symbol(result: &(String, u32, Option<u32>, bool, Vec<f32>)) -> &str {
+  match result.1 {
+    3 => "\\smallblackdiamond",
+    5 => "\\blacksquare",
+    7 => "\\scalebox{1.1}{$\\bullet$}",
+    2 => "\\smalldiamond",
+    4 => "\\square",
+    6 => "\\scalebox{1.1}{$\\circ$}",
+    1 => "+",
+    _ => "?"
+  }
 }

@@ -28,7 +28,7 @@ pub fn run(cpp_enabled: bool) {
       let name = "Compact (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ", r = 1/" + &ratio.to_string() + ")";
       let mask = ratio - 1; // Assumes ratio is a power of two
       benchmark(
-          if ratio == 2 { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
+          ChartStyle::WithoutKey,
           &name,
           || reference_sequential_single(mask, &input, &output)
         )
@@ -50,7 +50,7 @@ pub fn run(cpp_enabled: bool) {
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
-        .parallel("Assisted scan-t.-prop.", 2, Some(12), false, |thread_count| {
+        .parallel("Assisted scan-t.-prop.", 2, Some(12), true, |thread_count| {
           let output_count = AtomicUsize::new(0);
           let task = our_scan_then_propagate::create_task(mask, &input, &temp1, &output, &output_count);
           Workers::run(thread_count, task);
@@ -62,7 +62,7 @@ pub fn run(cpp_enabled: bool) {
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
-        .parallel("Adaptive chained scan", 6, None, false, |thread_count| {
+        .parallel("Adaptive chained scan", 6, None, true, |thread_count| {
           let output_count = AtomicUsize::new(0);
           let task = our_chained::create_task(mask, &input, &temp3, &output, &output_count);
           Workers::run(thread_count, task);

@@ -15,7 +15,10 @@ struct Phase1<'a> {
   // Other threads claim work from the right for a three pass scan.
   // Here we store the sizes of those two parts, as we need to later perform more work for the three pass scan.
   sequential_block_count: AtomicU32,
-  parallel_block_count: AtomicU32
+  parallel_block_count: AtomicU32,
+
+  // Only used for measurements
+  output_sequential_size: Option<&'a AtomicU64>,
 }
 
 struct Phase3<'a> {
@@ -24,7 +27,7 @@ struct Phase3<'a> {
   sequential_block_count: u32,
 }
 
-pub fn create_task(input: &[u64], output: &[AtomicU64]) -> Task {
+pub fn create_task(input: &[u64], output: &[AtomicU64], output_sequential_size: Option<&AtomicU64>) -> Task {
   let len = output.len();
   let mut block_size = (len as u64 + BLOCK_COUNT - 1) / BLOCK_COUNT;
   let mut block_count = BLOCK_COUNT;
@@ -32,7 +35,7 @@ pub fn create_task(input: &[u64], output: &[AtomicU64]) -> Task {
     block_size = MIN_BLOCK_SIZE;
     block_count = (len as u64 + MIN_BLOCK_SIZE - 1) / MIN_BLOCK_SIZE;
   }
-  Task::new_dataparallel::<Phase1>(phase1_run, phase1_finish, Phase1{ input, output, block_size, sequential_block_count: AtomicU32::new(0), parallel_block_count: AtomicU32::new(0) }, block_count as u32, true)
+  Task::new_dataparallel::<Phase1>(phase1_run, phase1_finish, Phase1{ input, output, block_size, sequential_block_count: AtomicU32::new(0), parallel_block_count: AtomicU32::new(0), output_sequential_size }, block_count as u32, true)
 }
 
 fn phase1_run(_workers: &Workers, data: &Phase1, loop_arguments: LoopArguments) {
@@ -53,6 +56,9 @@ fn phase1_run(_workers: &Workers, data: &Phase1, loop_arguments: LoopArguments) 
     |sequential_count, parallel_count| {
       data.sequential_block_count.store(sequential_count, Ordering::Relaxed);
       data.parallel_block_count.store(parallel_count, Ordering::Relaxed);
+      if let Some(r) = data.output_sequential_size {
+        r.store((sequential_count as u64 * data.block_size).min(data.input.len() as u64), Ordering::Relaxed);
+      }
     }
   );
 }

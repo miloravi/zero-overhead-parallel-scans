@@ -6,8 +6,8 @@ use crate::utils::benchmark::{benchmark, ChartStyle};
 
 mod chained;
 mod our_chained;
-mod our_reduce_then_scan;
-mod our_scan_then_propagate;
+pub mod our_reduce_then_scan;
+pub mod our_scan_then_propagate;
 mod reduce_then_scan;
 mod scan_then_propagate;
 
@@ -40,12 +40,12 @@ pub fn run(cpp_enabled: bool) {
         compute_output(&output)
       })
       .parallel("Assisted scan-t.-prop.", 2, Some(12), true, |thread_count| {
-        let task = our_scan_then_propagate::create_task(&input, &output);
+        let task = our_scan_then_propagate::create_task(&input, &output, None);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
       .parallel("Assisted reduce-t.-scan", 4, None, true, |thread_count| {
-        let task = our_reduce_then_scan::create_task(&input, &output);
+        let task = our_reduce_then_scan::create_task(&input, &output, None);
         Workers::run(thread_count, task);
         compute_output(&output)
       })

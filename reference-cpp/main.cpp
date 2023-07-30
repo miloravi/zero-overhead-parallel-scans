@@ -47,6 +47,37 @@ void test_parallel_scan(int size, uint64_t* input, uint64_t* output) {
   );
 }
 
+// Measures the ratio of work of the scan that was executed in a sequential mode (single pass).
+float measure_parallel_scan(int size, uint64_t* input, uint64_t* output) {
+  std::atomic<uint> non_final_count(0);
+  std::atomic<uint>* non_final_count_ptr = &non_final_count;
+
+  oneapi::tbb::parallel_scan(
+    oneapi::tbb::blocked_range<int>(0, size, 1024),
+    0,
+    [input, output, non_final_count_ptr](const oneapi::tbb::blocked_range<int>& r, int sum, bool is_final_scan) -> int {
+      int temp = sum;
+      int rend = r.end();
+      if (!is_final_scan) {
+        non_final_count_ptr->fetch_add(rend - r.begin());
+      }
+      for (int i=r.begin(); i<rend; ++i) {
+        temp = temp + input[i];
+        if (is_final_scan) {
+          output[i] = temp;
+        }
+      }
+
+      return temp;
+    },
+    []( int left, int right ) {
+      return left + right;
+    }
+  );
+
+  return ((float) size - (float) non_final_count) / (float) size;
+}
+
 void test_sequential_compact(uint64_t mask, int size, uint64_t* input, uint64_t* output) {
   int output_index = 0;
   for (int i = 0; i < size; i++) {
@@ -191,7 +222,22 @@ int main(int argc, char *argv[]) {
     // Compute and print average time
     auto msec = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - before);
     printf("%ld\n", msec.count() / RUNS);
+  } else if (std::strcmp(argv[1], "scan-measure-ratio") == 0) {
+    int thread_count = std::stoi(argv[3]);
+    if (thread_count <= 0) {
+      printf("thread count should be positive");
+      return 0;
+    }
+    tbb::global_control global_limit = tbb::global_control(tbb::global_control::max_allowed_parallelism, thread_count);
 
+    // Warm-up run
+    measure_parallel_scan(size, input, output);
+
+    float value = 0.0;
+    for (int j = 0; j < RUNS; j++) {
+      value += measure_parallel_scan(size, input, output);
+    }
+    printf("%f\n", value / RUNS);
   } else {
     printf("Unknown test case.");
   }
