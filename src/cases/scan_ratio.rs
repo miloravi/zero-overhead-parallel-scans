@@ -9,6 +9,8 @@ pub fn run(cpp_enabled: bool) {
   let input = scan::create_input(SIZE);
   let output = unsafe { utils::array::alloc_undef_u64_array(SIZE) };
 
+  println!();
+  println!("Ratio between sequential and parallel mode");
   case("Theoretical", |thread_count| 1.0 / thread_count as f32);
   case_average("Assisted scan-then-propagate", |thread_count| {
     let sequential_size = AtomicU64::new(0);

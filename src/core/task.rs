@@ -146,8 +146,8 @@ fn no_work(_workers: &Workers, _data: &(), _loop_arguments: LoopArguments) {
 }
 
 pub struct LoopArguments<'a> {
-  pub workstealing_size: u32,
-  pub workstealing_index: &'a AtomicU32,
+  pub work_size: u32,
+  pub work_index: &'a AtomicU32,
   pub empty_signal: EmptySignal<'a>,
   pub first_index: u32,
 }

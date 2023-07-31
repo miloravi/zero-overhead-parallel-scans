@@ -163,7 +163,7 @@ impl<'a> Workers<'a> {
 
   // Calls the work function of a task, and calls end_task afterwards
   fn call_task(&self, task: &TaskObject, signal: EmptySignal, first_index: u32) {
-    (task.function)(self, unsafe { &*Task::ptr_data(&*task) }, LoopArguments{ workstealing_size: task.work_size, workstealing_index: task.counters.workstealing_index(), empty_signal: signal, first_index });
+    (task.function)(self, unsafe { &*Task::ptr_data(&*task) }, LoopArguments{ work_size: task.work_size, work_index: task.counters.workstealing_index(), empty_signal: signal, first_index });
     self.end_task(task);
   }
 

@@ -18,7 +18,7 @@ pub fn run(cpp_enabled: bool) {
     let input = create_input(size);
     let mut temp = chained::create_temp();
     let output = unsafe { utils::array::alloc_undef_u64_array(size) };
-    let name = "Scan (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
+    let name = "Prefix-sum (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
     benchmark(
         if size < SIZE { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
         &name,
