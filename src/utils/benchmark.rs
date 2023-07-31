@@ -188,31 +188,26 @@ impl<T> Drop for Benchmarker<T> {
     // Note that { is escaped as {{ in Rust, } as }} and \ as \\.
 
     // begin tabular, specify columns
-    write!(&mut writer_tex, "\\begin{{tabular}}{{|c  l").unwrap();
+    write!(&mut writer_tex, "\\begin{{tabular}}{{cl").unwrap();
     for _ in &table_thread_counts {
-      write!(&mut writer_tex, " | r").unwrap();
+      write!(&mut writer_tex, "r").unwrap();
     }
-    write!(&mut writer_tex, " |}}\n").unwrap();
+    write!(&mut writer_tex, "}}\n\\toprule\n").unwrap();
 
     // Table header
-    write!(&mut writer_tex, "\\multicolumn{{2}}{{r|}}{{\\textbf{{Number of threads}}}}").unwrap();
+    write!(&mut writer_tex, "\\multicolumn{{2}}{{c}}{{\\textbf{{Number of threads}}}}").unwrap();
     for thread_count in &table_thread_counts[0 .. table_thread_counts.len() - 2] {
-      write!(&mut writer_tex, " & \\multicolumn{{1}}{{c|}}{{\\textbf{{ {} }}}}", thread_count).unwrap();
+      write!(&mut writer_tex, " & \\multicolumn{{1}}{{c}}{{\\textbf{{ {} }}}}", thread_count).unwrap();
     }
-    write!(&mut writer_tex, " & \\multicolumn{{2}}{{c|}}{{\\textbf{{ {} }} \\dots \\textbf{{ {} }}}}", table_thread_counts[table_thread_counts.len() - 2], table_thread_counts[table_thread_counts.len() - 1]).unwrap();
-    write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
+    write!(&mut writer_tex, " & \\multicolumn{{2}}{{c}}{{\\textbf{{ {} }} \\dots \\textbf{{ {} }}}}", table_thread_counts[table_thread_counts.len() - 2], table_thread_counts[table_thread_counts.len() - 1]).unwrap();
+    write!(&mut writer_tex, " \\\\\n\\midrule\n").unwrap();
 
     // Sequential reference times
     for (name, o_time) in [("Sequential (Rust)", Some(self.reference_time)), ("Sequential (C++)", self.reference_time_cpp)] {
       if let Some(time) = o_time {
         let ms = time / 1000;
-        let time_columns = 2;
-        write!(&mut writer_tex, "& {} & \\multicolumn{{1}}{{r}}{{ {:.2} }} & \\multicolumn{{ {} }}{{l |}}{{({} ms)}}", name, self.reference_time as f32 / time as f32, time_columns, ms).unwrap();
-        for &thread_count in table_thread_counts.iter().skip(1 + time_columns) {
-          if thread_count > self.max_threads as usize { break; }
-          write!(&mut writer_tex, " &").unwrap();
-        }
-        write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
+        write!(&mut writer_tex, "& {} & \\multicolumn{{1}}{{r}}{{ {:.2} }} & \\multicolumn{{ {} }}{{l}}{{({} ms)}}", name, self.reference_time as f32 / time as f32, table_thread_counts.len() - 1, ms).unwrap();
+        write!(&mut writer_tex, " \\\\\n").unwrap();
       }
     }
 
@@ -230,8 +225,9 @@ impl<T> Drop for Benchmarker<T> {
         if THREAD_COUNTS[idx] > 8 && THREAD_COUNTS[idx] < 16 { continue; }
         write!(&mut writer_tex, " & \\cellcolor{{gnuplot{}!{}}} {:.2}", result.1, color_factor, value).unwrap();
       }
-      write!(&mut writer_tex, " \\\\\n\\hline\n").unwrap();
+      write!(&mut writer_tex, " \\\\\n").unwrap();
     }
+    write!(&mut writer_tex, "\\bottomrule\n").unwrap();
     write!(&mut writer_tex, "\\end{{tabular}}\n").unwrap();
     drop(writer_tex);
   }
