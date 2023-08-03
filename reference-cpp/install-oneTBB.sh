@@ -1,6 +1,10 @@
 cd "$(dirname "$0")"
 SCRIPT_DIR=$( pwd )
 
+# Clean
+rm -rf ./oneTBB
+rm -rf ./oneTBB-install
+
 # Clone oneTBB repository
 git clone https://github.com/oneapi-src/oneTBB.git
 # Use a specific commit hash for reproducability
