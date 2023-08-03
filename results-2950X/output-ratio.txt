@@ -1,0 +1,45 @@
+Ratio between sequential and parallel mode
+Theoretical:
+  01 threads 100%
+  02 threads 50%
+  03 threads 33%
+  04 threads 25%
+  06 threads 17%
+  08 threads 12%
+  10 threads 10%
+  12 threads 8%
+  14 threads 7%
+  16 threads 6%
+Assisted scan-then-propagate:
+  01 threads 100%
+  02 threads 50%
+  03 threads 31%
+  04 threads 25%
+  06 threads 17%
+  08 threads 13%
+  10 threads 10%
+  12 threads 8%
+  14 threads 6%
+  16 threads 6%
+Assisted reduce-then-scan:
+  01 threads 100%
+  02 threads 44%
+  03 threads 28%
+  04 threads 20%
+  06 threads 14%
+  08 threads 10%
+  10 threads 8%
+  12 threads 7%
+  14 threads 6%
+  16 threads 7%
+oneTBB:
+  01 threads 100%
+  02 threads 50%
+  03 threads 39%
+  04 threads 19%
+  06 threads 14%
+  08 threads 9%
+  10 threads 9%
+  12 threads 10%
+  14 threads 9%
+  16 threads 9%
