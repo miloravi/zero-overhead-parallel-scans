@@ -56,9 +56,12 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
   pub fn cpp_sequential(mut self, cpp_enabled: bool, name: &str, cpp_name: &str, size: usize) -> Self {
     if !cpp_enabled { return self; }
 
-    let child = std::process::Command::new("./reference-cpp/build/main")
+    let mut command = std::process::Command::new("./reference-cpp/build/main");
+    command.env("LD_LIBRARY_PATH", "./reference-cpp/oneTBB-install/lib")
       .arg(cpp_name)
-      .arg(size.to_string())
+      .arg(size.to_string());
+
+    let child = command
       .output()
       .expect("Reference sequential C++ implementation failed");
   
@@ -88,10 +91,13 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
         break;
       }
 
-      let child = std::process::Command::new("./reference-cpp/build/main")
+      let mut command = std::process::Command::new("./reference-cpp/build/main");
+      command.env("LD_LIBRARY_PATH", "./reference-cpp/oneTBB-install/lib")
         .arg(cpp_name)
         .arg(size.to_string())
-        .arg(thread_count.to_string())
+        .arg(thread_count.to_string());
+
+      let child = command
         .output()
         .expect("Reference sequential C++ implementation failed");
 

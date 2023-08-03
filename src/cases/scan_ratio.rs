@@ -27,6 +27,7 @@ pub fn run(cpp_enabled: bool) {
   if cpp_enabled {
     case("oneTBB", |thread_count| {
       let child = std::process::Command::new("./reference-cpp/build/main")
+        .env("LD_LIBRARY_PATH", "./reference-cpp/oneTBB-install/lib")
         .arg("scan-measure-ratio")
         .arg(SIZE.to_string())
         .arg(thread_count.to_string())

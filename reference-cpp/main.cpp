@@ -123,7 +123,7 @@ int main(int argc, char *argv[]) {
   // Parse input size
   int size = std::stoi(argv[2]);
   if (size <= 0) {
-    printf("input-size should be positive");
+    printf("input-size should be positive.\n");
     return 0;
   }
 
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
     // Configure TBB with maximal thread count
     int thread_count = std::stoi(argv[3]);
     if (thread_count <= 0) {
-      printf("thread count should be positive");
+      printf("thread count should be positive.\n");
       return 0;
     }
     tbb::global_control global_limit = tbb::global_control(tbb::global_control::max_allowed_parallelism, thread_count);
@@ -203,7 +203,7 @@ int main(int argc, char *argv[]) {
     // Configure TBB with maximal thread count
     int thread_count = std::stoi(argv[3]);
     if (thread_count <= 0) {
-      printf("thread count should be positive");
+      printf("thread count should be positive.\n");
       return 0;
     }
     tbb::global_control global_limit = tbb::global_control(tbb::global_control::max_allowed_parallelism, thread_count);
@@ -225,7 +225,7 @@ int main(int argc, char *argv[]) {
   } else if (std::strcmp(argv[1], "scan-measure-ratio") == 0) {
     int thread_count = std::stoi(argv[3]);
     if (thread_count <= 0) {
-      printf("thread count should be positive");
+      printf("thread count should be positive.\n");
       return 0;
     }
     tbb::global_control global_limit = tbb::global_control(tbb::global_control::max_allowed_parallelism, thread_count);
@@ -239,7 +239,7 @@ int main(int argc, char *argv[]) {
     }
     printf("%f\n", value / RUNS);
   } else {
-    printf("Unknown test case.");
+    printf("Unknown test case.\n");
   }
 
   return 0;
