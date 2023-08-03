@@ -41,7 +41,7 @@ macro_rules! workassisting_loop_two_sided {
 
     if first_try.is_ok() {
       // This is the first thread. This thread goes from left to right.
-      let mut block_index = 0;
+      let mut block_idx = 0;
 
       if work_size == 1 {
         // This is also the last iteration
@@ -51,7 +51,7 @@ macro_rules! workassisting_loop_two_sided {
         $conclude_distribution
       }
       loop {
-        let $block_index_1: u32 = block_index;
+        let $block_index_1: u32 = block_idx;
         $first_thread;
 
         let index_value = work_index.fetch_add(1, Ordering::Relaxed);
@@ -67,7 +67,7 @@ macro_rules! workassisting_loop_two_sided {
           let $parallel_count: u32 = index_value >> 16;
           $conclude_distribution
         }
-        block_index = index_value & 0xFFFF;
+        block_idx = index_value & 0xFFFF;
       }
     } else {
       // This is not the first thread. This thread goes from right to left.
