@@ -1,0 +1,15 @@
+\begin{tabular}{clrrrrrrr}
+\toprule
+\multicolumn{2}{c}{\textbf{Number of threads}} & \multicolumn{1}{c}{\textbf{ 1 }} & \multicolumn{1}{c}{\textbf{ 2 }} & \multicolumn{1}{c}{\textbf{ 3 }} & \multicolumn{1}{c}{\textbf{ 4 }} & \multicolumn{1}{c}{\textbf{ 6 }} & \multicolumn{2}{c}{\textbf{ 8 } \dots \textbf{ 16 }} \\
+\midrule
+& Sequential (Rust) & \multicolumn{1}{r}{ 1.00 } & \multicolumn{ 6 }{l}{(339 ms)} \\
+& Sequential (C++) & \multicolumn{1}{r}{ 1.10 } & \multicolumn{ 6 }{l}{(308 ms)} \\
+\rowcolor{gnuplot3!10}$\color{gnuplot3}{\smallblackdiamond}$ & Scan-then-propagate & \cellcolor{gnuplot3!10} 0.47 & \cellcolor{gnuplot3!10} 0.91 & \cellcolor{gnuplot3!10} 1.25 & \cellcolor{gnuplot3!10} 1.50 & \cellcolor{gnuplot3!10} 1.72 & \cellcolor{gnuplot3!10} 1.84 & \cellcolor{gnuplot3!10} 1.80 \\
+\rowcolor{gnuplot5!10}$\color{gnuplot5}{\blacksquare}$ & Reduce-then-scan & \cellcolor{gnuplot5!10} 0.41 & \cellcolor{gnuplot5!10} 0.81 & \cellcolor{gnuplot5!10} 1.20 & \cellcolor{gnuplot5!10} 1.57 & \cellcolor{gnuplot5!10} 2.17 & \cellcolor{gnuplot5!10} 2.87 & \cellcolor{gnuplot5!10} 3.61 \\
+\rowcolor{gnuplot7!10}$\color{gnuplot7}{\scalebox{1.1}{$\bullet$}}$ & Chained scan & \cellcolor{gnuplot7!10} 0.54 & \cellcolor{gnuplot7!10} 1.02 & \cellcolor{gnuplot7!10} 1.47 & \cellcolor{gnuplot7!10} 1.91 & \cellcolor{gnuplot7!10} 2.57 & \cellcolor{gnuplot7!10} 3.44 & \cellcolor{gnuplot7!10} 4.86 \\
+\rowcolor{gnuplot2!30}$\color{gnuplot2}{\smalldiamond}$ & \textit{Assisted scan-t.-prop.} & \cellcolor{gnuplot2!30} 1.00 & \cellcolor{gnuplot2!30} 1.07 & \cellcolor{gnuplot2!30} 1.35 & \cellcolor{gnuplot2!30} 1.57 & \cellcolor{gnuplot2!30} 1.89 & \cellcolor{gnuplot2!30} 2.00 & \cellcolor{gnuplot2!30} 1.89 \\
+\rowcolor{gnuplot4!30}$\color{gnuplot4}{\square}$ & \textit{Assisted reduce-t.-scan} & \cellcolor{gnuplot4!30} 0.95 & \cellcolor{gnuplot4!30} 1.30 & \cellcolor{gnuplot4!30} 1.76 & \cellcolor{gnuplot4!30} 2.14 & \cellcolor{gnuplot4!30} 2.69 & \cellcolor{gnuplot4!30} 3.31 & \cellcolor{gnuplot4!30} 3.71 \\
+\rowcolor{gnuplot6!30}$\color{gnuplot6}{\scalebox{1.1}{$\circ$}}$ & \textit{Adaptive chained scan} & \cellcolor{gnuplot6!30} 0.98 & \cellcolor{gnuplot6!30} 1.18 & \cellcolor{gnuplot6!30} 1.66 & \cellcolor{gnuplot6!30} 2.07 & \cellcolor{gnuplot6!30} 2.66 & \cellcolor{gnuplot6!30} 3.43 & \cellcolor{gnuplot6!30} 4.75 \\
+\rowcolor{gnuplot1!10}$\color{gnuplot1}{+}$ & oneTBB & \cellcolor{gnuplot1!10} 0.99 & \cellcolor{gnuplot1!10} 0.97 & \cellcolor{gnuplot1!10} 1.30 & \cellcolor{gnuplot1!10} 1.58 & \cellcolor{gnuplot1!10} 2.02 & \cellcolor{gnuplot1!10} 2.41 & \cellcolor{gnuplot1!10} 2.54 \\
+\bottomrule
+\end{tabular}
