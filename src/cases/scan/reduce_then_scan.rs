@@ -9,13 +9,13 @@ const MIN_BLOCK_SIZE: u64 = 1024;
 
 #[derive(Copy, Clone)]
 struct Data<'a> {
-  input: &'a [u64],
+  input: &'a [AtomicU64],
   output: &'a [AtomicU64],
   block_size: u64,
   block_count: u64
 }
 
-pub fn create_task(input: &[u64], output: &[AtomicU64]) -> Task {
+pub fn create_task(input: &[AtomicU64], output: &[AtomicU64]) -> Task {
   let len = output.len();
   let mut block_size = (len as u64 + BLOCK_COUNT - 1) / BLOCK_COUNT;
   let mut block_count = BLOCK_COUNT;
@@ -55,15 +55,15 @@ fn phase1_finish(workers: &Workers, data: &Data) {
 }
 
 fn phase3_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
-  workassisting_loop!(loop_arguments, |block_idx| {
-    let start = block_idx as usize * data.block_size as usize;
+  workassisting_loop!(loop_arguments, |block_index| {
+    let start = block_index as usize * data.block_size as usize;
 
     // Exclusive upper bound of this block.
     // The last element of this block is already correct, so we do not iterate over that, hence the `- 1`.
     // In case of the last block, we may have a shorter block.
     let end = (start + data.block_size as usize - 1).min(data.output.len());
 
-    let initial = if block_idx == 0 { 0 } else { data.output[start - 1].load(Ordering::Relaxed) };
+    let initial = if block_index == 0 { 0 } else { data.output[start - 1].load(Ordering::Relaxed) };
     scan_sequential(&data.input[start .. end], initial, &data.output[start .. end]);
   });
 }

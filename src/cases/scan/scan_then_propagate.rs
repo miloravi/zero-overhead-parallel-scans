@@ -9,13 +9,13 @@ const MIN_BLOCK_SIZE: u64 = 1024;
 
 #[derive(Copy, Clone)]
 struct Data<'a> {
-  input: &'a [u64],
+  input: &'a [AtomicU64],
   output: &'a [AtomicU64],
   block_size: u64,
   block_count: u64
 }
 
-pub fn create_task(input: &[u64], output: &[AtomicU64]) -> Task {
+pub fn create_task(input: &[AtomicU64], output: &[AtomicU64]) -> Task {
   let len = output.len();
   let mut block_size = (len as u64 + BLOCK_COUNT - 1) / BLOCK_COUNT;
   let mut block_count = BLOCK_COUNT;

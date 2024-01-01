@@ -2,13 +2,13 @@ use core::sync::atomic::{Ordering, AtomicU32, AtomicU64};
 use crate::core::worker::{*};
 use crate::core::task::{*};
 use crate::core::workassisting_loop::*;
-use crate::cases::scan::{scan_sequential};
+use crate::cases::scan::scan_sequential;
 
 const BLOCK_COUNT: u64 = 32 * 8;
 const MIN_BLOCK_SIZE: u64 = 1024;
 
 struct Phase1<'a> {
-  input: &'a [u64],
+  input: &'a [AtomicU64],
   output: &'a [AtomicU64],
   block_size: u64,
   // The first thread goes through the list sequentially from the left, and can thus directly compute the output values.
@@ -27,7 +27,7 @@ struct Phase3<'a> {
   sequential_block_count: u32,
 }
 
-pub fn create_task(input: &[u64], output: &[AtomicU64], output_sequential_size: Option<&AtomicU64>) -> Task {
+pub fn create_task(input: &[AtomicU64], output: &[AtomicU64], output_sequential_size: Option<&AtomicU64>) -> Task {
   let len = output.len();
   let mut block_size = (len as u64 + BLOCK_COUNT - 1) / BLOCK_COUNT;
   let mut block_count = BLOCK_COUNT;

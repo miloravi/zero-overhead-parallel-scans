@@ -15,77 +15,129 @@ pub const SIZE: usize = 1024 * 1024 * 512;
 
 pub fn run(cpp_enabled: bool) {
   for size in [SIZE / 8, SIZE] {
-    let input = create_input(size);
-    let mut temp = chained::create_temp();
+    let temp = chained::create_temp();
+    let input = unsafe { utils::array::alloc_undef_u64_array(size) };
     let output = unsafe { utils::array::alloc_undef_u64_array(size) };
+    fill(&input);
     let name = "Prefix-sum (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
     benchmark(
         if size < SIZE { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
         &name,
-        || reference_sequential_single(&input, &output)
+        || {},
+        || { reference_sequential_single(&input, &output) }
       )
-      .parallel("Scan-then-propagate", 3, Some(13), false, |thread_count| {
+      .parallel("Scan-then-propagate", 3, Some(13), false, || {}, |thread_count| {
         let task = scan_then_propagate::create_task(&input, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Reduce-then-scan", 5, None, false, |thread_count| {
+      .parallel("Reduce-then-scan", 5, None, false, || {}, |thread_count| {
         let task = reduce_then_scan::create_task(&input, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Chained scan", 7, None, false, |thread_count| {
-        let task = chained::init_single(&input, &mut temp, &output);
+      .parallel("Chained scan", 7, None, false, || {}, |thread_count| {
+        let task = chained::init_single(&input, &temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Assisted scan-t.-prop.", 2, Some(12), true, |thread_count| {
+      .parallel("Assisted scan-t.-prop.", 2, Some(12), true, || {}, |thread_count| {
         let task = our_scan_then_propagate::create_task(&input, &output, None);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Assisted reduce-t.-scan", 4, None, true, |thread_count| {
+      .parallel("Assisted reduce-t.-scan", 4, None, true, || {}, |thread_count| {
         let task = our_reduce_then_scan::create_task(&input, &output, None);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Adaptive chained scan", 6, None, true, |thread_count| {
+      .parallel("Adaptive chained scan", 6, None, true, || {}, |thread_count| {
         let task = our_chained::init_single(&input, &temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-sequential", size)
-      .cpp_parallel(cpp_enabled, "oneTBB", 1, None, "scan-tbb", size);
+      .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-tbb", size)
+      .cpp_parlay(cpp_enabled, "Parlay", 8, None, "scan-parlay", size);
   }
 }
 
-pub fn create_input(size: usize) -> Box<[u64]> {
-  (0..size).map(|x| random(x as u64) as u64).collect()
+pub fn run_inplace(cpp_enabled: bool) {
+  for size in [SIZE / 8, SIZE] {
+    let temp = chained::create_temp();
+    let values = unsafe { utils::array::alloc_undef_u64_array(size) };
+    let name = "Prefix-sum inplace (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
+    benchmark(
+        if size < SIZE { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
+        &name,
+        || { fill(&values) },
+        || { reference_sequential_single(&values, &values) }
+      )
+      .parallel("Scan-then-propagate", 3, Some(13), false, || { fill(&values) }, |thread_count| {
+        let task = scan_then_propagate::create_task(&values, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Reduce-then-scan", 5, None, false, || { fill(&values) }, |thread_count| {
+        let task = reduce_then_scan::create_task(&values, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Chained scan", 7, None, false, || { fill(&values) }, |thread_count| {
+        let task = chained::init_single(&values, &temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Assisted scan-t.-prop.", 2, Some(12), true, || { fill(&values) }, |thread_count| {
+        let task = our_scan_then_propagate::create_task(&values, &values, None);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Assisted reduce-t.-scan", 4, None, true, || { fill(&values) }, |thread_count| {
+        let task = our_reduce_then_scan::create_task(&values, &values, None);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Adaptive chained scan", 6, None, true, || { fill(&values) }, |thread_count| {
+        let task = our_chained::init_single(&values, &temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .cpp_sequential(cpp_enabled, "Reference C++", "scan-inplace-sequential", size)
+      .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-inplace-tbb", size)
+      .cpp_parlay(cpp_enabled, "Parlay", 8, None, "scan-inplace-parlay", size);
+  }
+}
+
+pub fn fill(values: &[AtomicU64]) {
+  for (idx, value) in values.iter().enumerate() {
+    value.store(random(idx as u64) as u64, Ordering::Relaxed);
+  }
 }
 
 pub fn compute_output(output: &[AtomicU64]) -> u64 {
   output[0].load(Ordering::Relaxed) + output[98238].load(Ordering::Relaxed) + output[output.len() - 1].load(Ordering::Relaxed)
 }
 
-pub fn reference_sequential_single(input: &[u64], output: &[AtomicU64]) -> u64 {
+pub fn reference_sequential_single(input: &[AtomicU64], output: &[AtomicU64]) -> u64 {
   scan_sequential(input, 0, output);
   compute_output(output)
 }
 
-pub fn scan_sequential(input: &[u64], initial: u64, output: &[AtomicU64]) -> u64 {
+pub fn scan_sequential(input: &[AtomicU64], initial: u64, output: &[AtomicU64]) -> u64 {
   let mut accumulator = initial;
   assert_eq!(input.len(), output.len());
   for i in 0 .. output.len() {
-    accumulator += input[i];
+    accumulator += input[i].load(Ordering::Relaxed);
     output[i].store(accumulator, Ordering::Relaxed);
   }
   accumulator
 }
 
-pub fn fold_sequential(array: &[u64]) -> u64 {
+pub fn fold_sequential(array: &[AtomicU64]) -> u64 {
   let mut accumulator = 0;
   for value in array {
-    accumulator += value;
+    accumulator += value.load(Ordering::Relaxed);
   }
   accumulator
 }

@@ -15,6 +15,7 @@ pub struct Benchmarker<T> {
 }
 
 pub const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+pub const RUNS: usize = 50;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
 pub enum ChartStyle {
@@ -22,20 +23,20 @@ pub enum ChartStyle {
   WithoutKey
 }
 
-pub fn benchmark<T: Debug + Eq, Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, reference: Ref) -> Benchmarker<T> {
-  benchmark_with_max_speedup(chart_style, name, reference, 16, 6)
+pub fn benchmark<T: Debug + Eq, P: FnMut() -> (), Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, prepare: P, reference: Ref) -> Benchmarker<T> {
+  benchmark_with_max_speedup(chart_style, name, prepare, reference, 16, 6)
 }
 
-pub fn benchmark_with_max_speedup<T: Debug + Eq, Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, reference: Ref, max_threads: u32, max_speedup: u32) -> Benchmarker<T> {
+pub fn benchmark_with_max_speedup<T: Debug + Eq, P: FnMut() -> (), Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, prepare: P, reference: Ref, max_threads: u32, max_speedup: u32) -> Benchmarker<T> {
   println!("");
   println!("Benchmark {}", name);
-  let (expected, reference_time) = time(50, reference);
+  let (expected, reference_time) = time(RUNS, prepare, reference);
   println!("Sequential   {} ms", reference_time / 1000);
   Benchmarker{ chart_style, name: name.to_owned(), max_threads, max_speedup, reference_time, reference_time_cpp: None, expected, output: vec![] }
 }
 
 impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
-  pub fn parallel<Par: FnMut(usize) -> T>(mut self, name: &str, chart_line_style: u32, point_type: Option<u32>, our: bool, mut parallel: Par) -> Self {
+  pub fn parallel<Prepare: FnMut() -> (), Par: FnMut(usize) -> T>(mut self, name: &str, chart_line_style: u32, point_type: Option<u32>, our: bool, mut prepare: Prepare, mut parallel: Par) -> Self {
     println!("{}", name);
     let mut results = vec![];
     for thread_count in THREAD_COUNTS {
@@ -43,7 +44,7 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
         break;
       }
 
-      let (value, time) = time(50, || parallel(thread_count));
+      let (value, time) = time(RUNS, || { prepare() }, || parallel(thread_count));
       assert_eq!(self.expected, value);
       let relative = self.reference_time as f32 / time as f32;
       results.push(relative);
@@ -81,7 +82,7 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
     self
   }
 
-  pub fn cpp_parallel(mut self, cpp_enabled: bool, name: &str, chart_line_style: u32, point_type: Option<u32>, cpp_name: &str, size: usize) -> Self {
+  pub fn cpp_tbb(mut self, cpp_enabled: bool, name: &str, chart_line_style: u32, point_type: Option<u32>, cpp_name: &str, size: usize) -> Self {
     if !cpp_enabled { return self; }
 
     println!("{}", name);
@@ -91,7 +92,7 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
         break;
       }
 
-      let mut command = std::process::Command::new("./reference-cpp/build/main");
+      let mut command = std::process::Command::new("./reference-cpp/build/main-tbb");
       command.env("LD_LIBRARY_PATH", "./reference-cpp/oneTBB-install/lib")
         .arg(cpp_name)
         .arg(size.to_string())
@@ -99,7 +100,37 @@ impl<T: Copy + Debug + Eq + Send> Benchmarker<T> {
 
       let child = command
         .output()
-        .expect("Reference sequential C++ implementation failed");
+        .expect("Reference oneTBB C++ implementation failed");
+
+      let time_str = String::from_utf8_lossy(&child.stdout);
+      let time: u64 = time_str.trim().parse().expect(&("Unexpected output from reference C++ program: ".to_owned() + &time_str));
+      let relative = self.reference_time as f32 / time as f32;
+      results.push(relative);
+      println!("  {:02} threads {} ms ({:.2}x)", thread_count, time / 1000, relative);
+    }
+    self.output.push((name.to_owned(), chart_line_style, point_type, false, results));
+
+    self
+  }
+
+  pub fn cpp_parlay(mut self, cpp_enabled: bool, name: &str, chart_line_style: u32, point_type: Option<u32>, cpp_name: &str, size: usize) -> Self {
+    if !cpp_enabled { return self; }
+
+    println!("{}", name);
+    let mut results = vec![];
+    for thread_count in THREAD_COUNTS {
+      if thread_count > self.max_threads as usize {
+        break;
+      }
+
+      let mut command = std::process::Command::new("./reference-cpp/build/main-parlaylib");
+      command.env("PARLAY_NUM_THREADS", thread_count.to_string())
+        .arg(cpp_name)
+        .arg(size.to_string());
+
+      let child = command
+        .output()
+        .expect("Reference parlay C++ implementation failed");
 
       let time_str = String::from_utf8_lossy(&child.stdout);
       let time: u64 = time_str.trim().parse().expect(&("Unexpected output from reference C++ program: ".to_owned() + &time_str));
@@ -239,15 +270,20 @@ impl<T> Drop for Benchmarker<T> {
   }
 }
 
-pub fn time<T: Debug + Eq, F: FnMut() -> T>(runs: usize, mut f: F) -> (T, u64) {
+pub fn time<T: Debug + Eq, P: FnMut() -> (), F: FnMut() -> T>(runs: usize, mut prepare: P, mut f: F) -> (T, u64) {
+  prepare();
   let first = f();
   
-  let timer = time::Instant::now();
+  let mut elapsed = std::time::Duration::ZERO;
   for _ in 0 .. runs {
-    assert_eq!(first, f());
+    prepare();
+    let timer = time::Instant::now();
+    let result = f();
+    elapsed += timer.elapsed();
+    assert_eq!(first, result);
   }
 
-  (first, (timer.elapsed().as_micros() / runs as u128) as u64)
+  (first, (elapsed.as_micros() / runs as u128) as u64)
 }
 
 fn latex_symbol(result: &(String, u32, Option<u32>, bool, Vec<f32>)) -> &str {
@@ -259,6 +295,7 @@ fn latex_symbol(result: &(String, u32, Option<u32>, bool, Vec<f32>)) -> &str {
     4 => "\\square",
     6 => "\\scalebox{1.1}{$\\circ$}",
     1 => "+",
+    8 => "\\triangle",
     _ => "?"
   }
 }

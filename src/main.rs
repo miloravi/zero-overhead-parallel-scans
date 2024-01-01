@@ -11,8 +11,8 @@ fn main() {
     println!("Running the benchmarks without the C++ and oneTBB implementations.");
   }
 
-  affinity::set_thread_affinity([0, 4, 8, 12, 2, 6, 10, 14]).unwrap();
   cases::scan::run(cpp_enabled);
+  cases::scan::run_inplace(cpp_enabled);
   cases::compact::run(cpp_enabled);
   cases::scan_ratio::run(cpp_enabled);
 }

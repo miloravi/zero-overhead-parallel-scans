@@ -6,7 +6,8 @@ use crate::cases::scan;
 const SIZE: usize = 1024 * 1024 * 512 / 8;
 
 pub fn run(cpp_enabled: bool) {
-  let input = scan::create_input(SIZE);
+  let input = unsafe { utils::array::alloc_undef_u64_array(SIZE) };
+  scan::fill(&input);
   let output = unsafe { utils::array::alloc_undef_u64_array(SIZE) };
 
   println!();
@@ -26,7 +27,7 @@ pub fn run(cpp_enabled: bool) {
   });
   if cpp_enabled {
     case("oneTBB", |thread_count| {
-      let child = std::process::Command::new("./reference-cpp/build/main")
+      let child = std::process::Command::new("./reference-cpp/build/main-tbb")
         .env("LD_LIBRARY_PATH", "./reference-cpp/oneTBB-install/lib")
         .arg("scan-measure-ratio")
         .arg(SIZE.to_string())

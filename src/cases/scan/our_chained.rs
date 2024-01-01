@@ -8,18 +8,18 @@ use crate::core::workassisting_loop::*;
 
 const BLOCK_SIZE: u64 = 1024 * 4;
 
-pub fn init_single(input: &[u64], temp: &[BlockInfo], output: &[AtomicU64]) -> Task {
+pub fn init_single(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]) -> Task {
   reset(temp);
   create_task(input, temp, output)
 }
 
 struct Data<'a> {
-  input: &'a [u64],
+  input: &'a [AtomicU64],
   temp: &'a [BlockInfo],
   output: &'a [AtomicU64]
 }
 
-fn create_task(input: &[u64], temp: &[BlockInfo], output: &[AtomicU64]) -> Task {
+fn create_task(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]) -> Task {
   Task::new_dataparallel::<Data>(run, finish, Data{ input, temp, output }, ((input.len() as u64 + BLOCK_SIZE - 1) / BLOCK_SIZE) as u32, false)
 }
 
