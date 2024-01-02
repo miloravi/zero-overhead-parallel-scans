@@ -20,7 +20,7 @@ fn main() {
 // Utilities to install and build the c++ and oneTBB implementation.
 fn setup_cpp() -> bool {
   if !Path::new("./reference-cpp/oneTBB-install").is_dir() {
-    println!("This benchmark suite has a reference implementation in C++ and parallel implementations in oneTBB. This requires Linux, g++ and git. This program will automatically download and install oneTBB (locally), if enabled.");
+    println!("This benchmark suite has a reference implementation in C++ and parallel implementations in oneTBB and parlaylib. This requires Linux, clang++ and git. This program will automatically download and install oneTBB and parlaylib (locally in ./reference-cpp), if enabled.");
     println!("Do you want to enable the C++ and oneTBB implementations? y/n");
 
     let enable = ask();
@@ -32,7 +32,14 @@ fn setup_cpp() -> bool {
     match std::process::Command::new("sh").arg("./reference-cpp/install-oneTBB.sh").spawn() {
       Ok(mut child) => {
         match child.wait() {
-          Ok(_) => {}
+          Ok(result) => {
+            if !result.success() {
+              println!("Build of oneTBB failed.");
+              println!("The log above may contain errors and you may inspect ./reference-cpp/oneTBB.");
+              println!("Remove ./reference-cpp/oneTBB and ./reference-cpp/oneTBB-install before trying again.");
+              return false;
+            }
+          }
           Err(_) => {
             println!("Build of oneTBB failed.");
             println!("The log above may contain errors and you may inspect ./reference-cpp/oneTBB.");
@@ -48,12 +55,45 @@ fn setup_cpp() -> bool {
     }
   }
 
+  if !Path::new("./reference-cpp/parlaylib").is_dir() {
+    println!("Downloading parlaylib");
+    match std::process::Command::new("sh").arg("./reference-cpp/install-parlaylib.sh").spawn() {
+      Ok(mut child) => {
+        match child.wait() {
+          Ok(result) => {
+            if !result.success() {
+              println!("Downloading parlaylib failed.");
+              println!("The log above may contain errors and you may inspect ./reference-cpp/parlaylib.");
+              println!("Remove ./reference-cpp/parlaylib before trying again.");
+              return false;
+            }
+          }
+          Err(_) => {
+            println!("Downloading parlaylib failed.");
+            println!("The log above may contain errors and you may inspect ./reference-cpp/parlaylib.");
+            println!("Remove ./reference-cpp/parlaylib before trying again.");
+            return false;
+          },
+        }
+      },
+      Err(_) => {
+        println!("Build of parlaylib failed.");
+        return false;
+      }
+    }
+  }
+
   // Build C++ code
   println!("Building the C++ code");
   match std::process::Command::new("sh").arg("./reference-cpp/build.sh").spawn() {
     Ok(mut child) => {
       match child.wait() {
-        Ok(_) => {}
+        Ok(result) => {
+          if !result.success() {
+            println!("Build of C++ code failed.");
+            return false;
+          }
+        }
         Err(_) => {
           println!("Build of C++ code failed.");
           return false;
