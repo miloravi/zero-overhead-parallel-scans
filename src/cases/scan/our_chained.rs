@@ -23,7 +23,8 @@ fn create_task(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]) ->
   Task::new_dataparallel::<Data>(run, finish, Data{ input, temp, output }, ((input.len() as u64 + BLOCK_SIZE - 1) / BLOCK_SIZE) as u32, false)
 }
 
-fn run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
+fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
   workassisting_loop!(loop_arguments, |block_index| {
     // reduce-then-scan
     let start = block_index as usize * BLOCK_SIZE as usize;
@@ -80,6 +81,7 @@ fn run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
   });
 }
 
-fn finish(workers: &Workers, _data: &Data) {
+fn finish(workers: &Workers, task: *mut TaskObject<Data>) {
+  let _ = unsafe { TaskObject::take_data(task) };
   workers.finish();
 }

@@ -40,7 +40,9 @@ pub fn create_task(mask: u64, input: &[u64], temp: &[AtomicU64], output: &[Atomi
   Task::new_dataparallel::<Phase1>(phase1_run, phase1_finish, Phase1{ mask, input, temp, output, output_count, block_size, block_count, sequential_block_count: AtomicU32::new(0) /*parallel_block_count: AtomicU32::new(0) */ }, block_count as u32, true)
 }
 
-fn phase1_run(_workers: &Workers, data: &Phase1, loop_arguments: LoopArguments) {
+fn phase1_run(_workers: &Workers, task: *const TaskObject<Phase1>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
+
   let mut accumulator = 0;
   workassisting_loop_two_sided!(loop_arguments,
     // Sequential work for first thread
@@ -63,7 +65,8 @@ fn phase1_run(_workers: &Workers, data: &Phase1, loop_arguments: LoopArguments) 
   );
 }
 
-fn phase1_finish(workers: &Workers, phase1: &Phase1) {
+fn phase1_finish(workers: &Workers, task: *mut TaskObject<Phase1>) {
+  let phase1 = unsafe { TaskObject::take_data(task) };
   // Phase 2
   let sequential_block_count = phase1.sequential_block_count.load(Ordering::Relaxed);
   // Scan the values of data.temp
@@ -89,7 +92,9 @@ fn phase1_finish(workers: &Workers, phase1: &Phase1) {
   workers.push_task(Task::new_dataparallel(phase3_run, phase3_finish, phase3, block_count as u32 - sequential_block_count, false))
 }
 
-fn phase3_run(_workers: &Workers, data: &Phase3, loop_arguments: LoopArguments) {
+fn phase3_run(_workers: &Workers, task: *const TaskObject<Phase3>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
+
   workassisting_loop!(loop_arguments, |block_idx_offset| {
     let block_idx = block_idx_offset + data.sequential_block_count;
     let start = block_idx as usize * data.block_size as usize;
@@ -104,6 +109,7 @@ fn phase3_run(_workers: &Workers, data: &Phase3, loop_arguments: LoopArguments) 
   });
 }
 
-fn phase3_finish(workers: &Workers, _data: &Phase3) {
+fn phase3_finish(workers: &Workers, task: *mut TaskObject<Phase3>) {
+  let _ = unsafe { TaskObject::take_data(task) };
   workers.finish();
 }

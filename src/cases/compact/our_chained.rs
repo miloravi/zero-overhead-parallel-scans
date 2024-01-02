@@ -10,7 +10,8 @@ pub fn create_task(mask: u64, input: &[u64], temp: &[BlockInfo], output: &[Atomi
   Task::new_dataparallel::<Data>(run, finish, Data{ mask, input, temp, output, output_count }, ((input.len() as u64 + BLOCK_SIZE - 1) / BLOCK_SIZE) as u32, false)
 }
 
-fn run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
+fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
   workassisting_loop!(loop_arguments, |block_index| {
     // Local scan
     // reduce-then-scan
@@ -67,7 +68,8 @@ fn run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
   });
 }
 
-fn finish(workers: &Workers, data: &Data) {
+fn finish(workers: &Workers, task: *mut TaskObject<Data>) {
+  let data = unsafe { TaskObject::take_data(task) };
   let count = data.temp[data.temp.len() - 1].prefix.load(Ordering::Relaxed);
   data.output_count.store(count, Ordering::Relaxed);
   workers.finish();

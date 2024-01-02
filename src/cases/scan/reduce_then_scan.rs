@@ -26,7 +26,8 @@ pub fn create_task(input: &[AtomicU64], output: &[AtomicU64]) -> Task {
   Task::new_dataparallel::<Data>(phase1_run, phase1_finish, Data{ input, output, block_size, block_count }, block_count as u32, false)
 }
 
-fn phase1_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
+fn phase1_run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
   workassisting_loop!(loop_arguments, |block_index| {
     // Local reduce
     let start = block_index as usize * data.block_size as usize;
@@ -38,7 +39,8 @@ fn phase1_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
   });
 }
 
-fn phase1_finish(workers: &Workers, data: &Data) {
+fn phase1_finish(workers: &Workers, task: *mut TaskObject<Data>) {
+  let data = unsafe { TaskObject::take_data(task) };
   // Phase 2
   // Scan the values of the separate blocks.
   // After this loop, all elements at an index `i * block_size - 1` are correct. 
@@ -51,10 +53,11 @@ fn phase1_finish(workers: &Workers, data: &Data) {
   }
 
   let block_count = data.block_count;
-  workers.push_task(Task::new_dataparallel(phase3_run, phase3_finish, *data, block_count as u32, false))
+  workers.push_task(Task::new_dataparallel(phase3_run, phase3_finish, data, block_count as u32, false))
 }
 
-fn phase3_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
+fn phase3_run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
   workassisting_loop!(loop_arguments, |block_index| {
     let start = block_index as usize * data.block_size as usize;
 
@@ -68,6 +71,7 @@ fn phase3_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
   });
 }
 
-fn phase3_finish(workers: &Workers, _data: &Data) {
+fn phase3_finish(workers: &Workers, task: *mut TaskObject<Data>) {
+  let _ = unsafe { TaskObject::take_data(task) };
   workers.finish();
 }

@@ -27,7 +27,8 @@ pub fn create_task(mask: u64, input: &[u64], temp: &[AtomicU64], output: &[Atomi
   Task::new_dataparallel::<Data>(phase1_run, phase1_finish, Data{ mask, input, temp, output, output_count, block_size, block_count }, block_count as u32, false)
 }
 
-fn phase1_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
+fn phase1_run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
   workassisting_loop!(loop_arguments, |block_index| {
     // Local scan
     let start = block_index as usize * data.block_size as usize;
@@ -36,7 +37,8 @@ fn phase1_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
   });
 }
 
-fn phase1_finish(workers: &Workers, data: &Data) {
+fn phase1_finish(workers: &Workers, task: *mut TaskObject<Data>) {
+  let data = unsafe { TaskObject::take_data(task) };
   // Phase 2
   // Scan the values of the separate blocks.
   // After this loop, all elements at an index `i * block_size - 1` are correct. 
@@ -49,12 +51,13 @@ fn phase1_finish(workers: &Workers, data: &Data) {
   }
 
   let block_count = data.block_count;
-  workers.push_task(Task::new_dataparallel(phase3_run, phase3_finish, *data, block_count as u32, false))
+  workers.push_task(Task::new_dataparallel(phase3_run, phase3_finish, data, block_count as u32, false))
 }
 
-fn phase3_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
-  workassisting_loop!(loop_arguments, |block_idx| {
-    let start = block_idx as usize * data.block_size as usize;
+fn phase3_run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
+  let data = unsafe { TaskObject::get_data(task) };
+  workassisting_loop!(loop_arguments, |block_index| {
+    let start = block_index as usize * data.block_size as usize;
     
     // Exclusive upper bound of this block.
     // In case of the last block, we may have a shorter block.
@@ -85,6 +88,7 @@ fn phase3_run(_workers: &Workers, data: &Data, loop_arguments: LoopArguments) {
   });
 }
 
-fn phase3_finish(workers: &Workers, _data: &Data) {
+fn phase3_finish(workers: &Workers, task: *mut TaskObject<Data>) {
+  let _ = unsafe { TaskObject::take_data(task) };
   workers.finish();
 }
