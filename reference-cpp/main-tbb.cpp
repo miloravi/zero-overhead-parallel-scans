@@ -145,6 +145,24 @@ int main(int argc, char *argv[]) {
     }
     printf("%f\n", value / RUNS);
 
+  } else if (std::strcmp(argv[1], "scan-measure-ratio-inplace") == 0) {
+    int thread_count = std::stoi(argv[3]);
+    if (thread_count <= 0) {
+      printf("thread count should be positive.\n");
+      return 0;
+    }
+    tbb::global_control global_limit = tbb::global_control(tbb::global_control::max_allowed_parallelism, thread_count);
+
+    // Warm-up run
+    measure_parallel_scan(size, input, input);
+
+    float value = 0.0;
+    for (int j = 0; j < RUNS; j++) {
+      fill(size, input);
+      value += measure_parallel_scan(size, input, input);
+    }
+    printf("%f\n", value / RUNS);
+
   } else {
     printf("Unknown test case.\n");
   }

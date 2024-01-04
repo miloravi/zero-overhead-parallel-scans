@@ -5,23 +5,27 @@ use crate::cases::scan;
 
 const SIZE: usize = 1024 * 1024 * 512 / 8;
 
-pub fn run(cpp_enabled: bool) {
+pub fn run(cpp_enabled: bool, inplace: bool) {
   let input = unsafe { utils::array::alloc_undef_u64_array(SIZE) };
   scan::fill(&input);
   let output = unsafe { utils::array::alloc_undef_u64_array(SIZE) };
 
+  let output_ref = if inplace { &input } else { &output };
+
   println!();
-  println!("Ratio between sequential and parallel mode");
+  println!("Ratio between sequential and parallel mode ({})", if inplace { "in-place" } else { "out-of-place" });
   case("Theoretical", |thread_count| 1.0 / thread_count as f32);
   case_average("Assisted scan-then-propagate", |thread_count| {
+    if inplace { scan::fill(&input); }
     let sequential_size = AtomicU64::new(0);
-    let task = scan::our_scan_then_propagate::create_task(&input, &output, Some(&sequential_size));
+    let task = scan::our_scan_then_propagate::create_task(&input, output_ref, Some(&sequential_size));
     Workers::run(thread_count, task);
     sequential_size.load(Ordering::Relaxed) as f32 / SIZE as f32
   });
   case_average("Assisted reduce-then-scan", |thread_count| {
+    if inplace { scan::fill(&input); }
     let sequential_size = AtomicU64::new(0);
-    let task = scan::our_reduce_then_scan::create_task(&input, &output, Some(&sequential_size));
+    let task = scan::our_reduce_then_scan::create_task(&input, output_ref, Some(&sequential_size));
     Workers::run(thread_count, task);
     sequential_size.load(Ordering::Relaxed) as f32 / SIZE as f32
   });
@@ -29,7 +33,7 @@ pub fn run(cpp_enabled: bool) {
     case("oneTBB", |thread_count| {
       let child = std::process::Command::new("./reference-cpp/build/main-tbb")
         .env("LD_LIBRARY_PATH", "./reference-cpp/oneTBB-install/lib")
-        .arg("scan-measure-ratio")
+        .arg(if inplace { "scan-measure-ratio-inplace" } else { "scan-measure-ratio" })
         .arg(SIZE.to_string())
         .arg(thread_count.to_string())
         .output()
