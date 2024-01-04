@@ -11,17 +11,17 @@ pub mod our_scan_then_propagate;
 mod reduce_then_scan;
 mod scan_then_propagate;
 
-pub const SIZE: usize = 1024 * 1024 * 512;
+pub const SIZE: usize = 1024 * 1024 * 64;
 
 pub fn run(cpp_enabled: bool) {
-  for size in [SIZE / 8, SIZE] {
+  for size in [SIZE] {
     let temp = chained::create_temp();
     let input = unsafe { utils::array::alloc_undef_u64_array(size) };
     let output = unsafe { utils::array::alloc_undef_u64_array(size) };
     fill(&input);
     let name = "Prefix-sum (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
     benchmark(
-        if size < SIZE { ChartStyle::WithKey } else { ChartStyle::WithoutKey },
+        ChartStyle::WithKey,
         &name,
         || {},
         || { reference_sequential_single(&input, &output) }
@@ -58,12 +58,12 @@ pub fn run(cpp_enabled: bool) {
       })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-sequential", size)
       .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-tbb", size)
-      .cpp_parlay(cpp_enabled, "Parlay", 8, None, "scan-parlay", size);
+      .cpp_parlay(cpp_enabled, "ParlayLib", 8, None, "scan-parlay", size);
   }
 }
 
 pub fn run_inplace(cpp_enabled: bool) {
-  for size in [SIZE / 8, SIZE] {
+  for size in [SIZE] {
     let temp = chained::create_temp();
     let values = unsafe { utils::array::alloc_undef_u64_array(size) };
     let name = "Prefix-sum inplace (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
@@ -105,7 +105,7 @@ pub fn run_inplace(cpp_enabled: bool) {
       })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-inplace-sequential", size)
       .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-inplace-tbb", size)
-      .cpp_parlay(cpp_enabled, "Parlay", 8, None, "scan-inplace-parlay", size);
+      .cpp_parlay(cpp_enabled, "ParlayLib", 8, None, "scan-inplace-parlay", size);
   }
 }
 

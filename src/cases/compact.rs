@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicUsize;
 use num_format::{Locale, ToFormattedString};
 use crate::core::worker::*;
 use crate::utils;
-use crate::utils::benchmark::{benchmark, ChartStyle};
+use crate::utils::benchmark::{benchmark_with_max_speedup, ChartStyle};
 
 mod chained;
 mod reduce_then_scan;
@@ -27,11 +27,13 @@ pub fn run(cpp_enabled: bool) {
       let output = unsafe { utils::array::alloc_undef_u64_array(size) };
       let name = "Compact (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ", r = 1/" + &ratio.to_string() + ")";
       let mask = ratio - 1; // Assumes ratio is a power of two
-      benchmark(
+      benchmark_with_max_speedup(
           ChartStyle::WithoutKey,
           &name,
           || {},
-          || reference_sequential_single(mask, &input, &output)
+          || reference_sequential_single(mask, &input, &output),
+          24,
+          6
         )
         .parallel("Scan-then-propagate", 3, Some(13), false, || {}, |thread_count| {
           let output_count = AtomicUsize::new(0);
@@ -71,7 +73,7 @@ pub fn run(cpp_enabled: bool) {
         })
         .cpp_sequential(cpp_enabled, "Reference C++", &("compact-".to_owned() + &ratio.to_string() + "-sequential"), size)
         .cpp_tbb(cpp_enabled, "oneTBB", 1, None, &("compact-".to_owned() + &ratio.to_string() + "-tbb"), size)
-        .cpp_parlay(cpp_enabled, "Parlay", 8, None, &("compact-".to_owned() + &ratio.to_string() + "-parlay"), size);
+        .cpp_parlay(cpp_enabled, "ParlayLib", 8, None, &("compact-".to_owned() + &ratio.to_string() + "-parlay"), size);
     }
   }
 }

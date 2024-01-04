@@ -216,11 +216,12 @@ impl<T> Drop for Benchmarker<T> {
     let mut writer_tex = BufWriter::new(&file_tex);
 
     // Don't show high thread counts or thread counts between 8 and 16, as the results don't change that much there.
-    let table_thread_counts: Vec<usize> = THREAD_COUNTS
-      .iter()
-      .cloned()
-      .filter(|&thread_count| thread_count <= self.max_threads as usize && !(thread_count > 8 && thread_count < 16))
-      .collect();
+    let table_thread_counts: Vec<usize> =
+      if self.max_threads == 24 {
+        vec![1, 2, 3, 4, 8, 16, 24]
+      } else {
+        vec![1, 2, 3, 4, 6, 8, 16]
+      };
 
     // Note that { is escaped as {{ in Rust, } as }} and \ as \\.
 
@@ -259,8 +260,9 @@ impl<T> Drop for Benchmarker<T> {
         write!(&mut writer_tex, " & {}", result.0).unwrap();
       }
       for (idx, &value) in result.4.iter().enumerate() {
-        if THREAD_COUNTS[idx] > 8 && THREAD_COUNTS[idx] < 16 { continue; }
-        write!(&mut writer_tex, " & \\cellcolor{{gnuplot{}!{}}} {:.2}", result.1, color_factor, value).unwrap();
+        if table_thread_counts.contains(&THREAD_COUNTS[idx]) {
+          write!(&mut writer_tex, " & \\cellcolor{{gnuplot{}!{}}} {:.2}", result.1, color_factor, value).unwrap();
+        }
       }
       write!(&mut writer_tex, " \\\\\n").unwrap();
     }
