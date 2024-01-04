@@ -25,6 +25,7 @@ fn create_task(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]) ->
 
 fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopArguments) {
   let data = unsafe { TaskObject::get_data(task) };
+  let mut sequential = true;
   workassisting_loop!(loop_arguments, |block_index| {
     // reduce-then-scan
     let start = block_index as usize * BLOCK_SIZE as usize;
@@ -33,7 +34,9 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
     // Check if we already have an aggregate of the previous block.
     // If that is the case, then we can perform the scan directly.
     // Otherwise we perform a reduce-then-scan over this block.
-    let aggregate_start = if block_index ==  0 {
+    let aggregate_start = if !sequential {
+      None // Don't switch back from parallel mode to sequential mode
+    } else if block_index ==  0 {
       Some(0)
     } else {
       let previous = block_index - 1;
@@ -50,6 +53,7 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
       data.temp[block_index as usize].prefix.store(local, Ordering::Relaxed);
       data.temp[block_index as usize].state.store(STATE_PREFIX_AVAILABLE, Ordering::Release);
     } else {
+      sequential = false;
       let local = fold_sequential(&data.input[start .. end]);
       // Share own local value
       data.temp[block_index as usize].aggregate.store(local, Ordering::Relaxed);
