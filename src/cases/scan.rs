@@ -116,7 +116,7 @@ pub fn fill(values: &[AtomicU64]) {
 }
 
 pub fn compute_output(output: &[AtomicU64]) -> u64 {
-  output[0].load(Ordering::Relaxed) + output[98238].load(Ordering::Relaxed) + output[output.len() - 1].load(Ordering::Relaxed)
+  output[0].load(Ordering::Relaxed) + output[98238].load(Ordering::Relaxed) + output[output.len() - 123].load(Ordering::Relaxed) + output[output.len() - 1].load(Ordering::Relaxed)
 }
 
 pub fn reference_sequential_single(input: &[AtomicU64], output: &[AtomicU64]) -> u64 {

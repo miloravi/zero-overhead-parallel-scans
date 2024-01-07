@@ -54,8 +54,10 @@ macro_rules! workassisting_loop_two_sided {
         let $block_index_1: u32 = block_idx;
         $first_thread;
 
-        let index_value = work_index.fetch_add(1, Ordering::Relaxed);
-        let count_claimed = (index_value & 0xFFFF) + (index_value >> 16) + 1;
+        let index = work_index.fetch_add(1, Ordering::Relaxed);
+        let sequential_index = index & 0xFFFF;
+        let parallel_index = index >> 16;
+        let count_claimed = sequential_index + parallel_index + 1;
         if count_claimed > work_size {
           // Everything is claimed
           empty_signal.task_empty();
@@ -63,17 +65,19 @@ macro_rules! workassisting_loop_two_sided {
         } else if count_claimed == work_size {
           // This is the last iteration
           empty_signal.task_empty();
-          let $sequential_count: u32 = (index_value & 0xFFFF) + 1;
-          let $parallel_count: u32 = index_value >> 16;
+          let $sequential_count: u32 = sequential_index + 1;
+          let $parallel_count: u32 = parallel_index;
           $conclude_distribution
         }
-        block_idx = index_value & 0xFFFF;
+        block_idx = sequential_index;
       }
     } else {
       // This is not the first thread. This thread goes from right to left.
       loop {
-        let index_value = work_index.fetch_add(1 << 16, Ordering::Relaxed);
-        let count_claimed = (index_value & 0xFFFF) + (index_value >> 16) + 1;
+        let index = work_index.fetch_add(1 << 16, Ordering::Relaxed);
+        let sequential_index = index & 0xFFFF;
+        let parallel_index = index >> 16;
+        let count_claimed = sequential_index + parallel_index + 1;
         if count_claimed > work_size {
           // Everything is claimed
           empty_signal.task_empty();
@@ -81,11 +85,11 @@ macro_rules! workassisting_loop_two_sided {
         } else if count_claimed == work_size {
           // This is the last iteration
           empty_signal.task_empty();
-          let $sequential_count: u32 = (index_value & 0xFFFF);
-          let $parallel_count: u32 = index_value >> 16 + 1;
+          let $sequential_count: u32 = sequential_index;
+          let $parallel_count: u32 = parallel_index + 1;
           $conclude_distribution
         }
-        let block_index = work_size - (index_value >> 16) - 1;
+        let block_index = work_size - parallel_index - 1;
         let $block_index_2: u32 = block_index;
         $other_threads
       }
