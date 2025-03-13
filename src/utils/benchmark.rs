@@ -15,10 +15,10 @@ pub struct Benchmarker<T> {
 }
 
 // Thread count for min 32 thread CPUs
-pub const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+// pub const THREAD_COUNTS: [usize; 12] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
 
 // Thread count for min 12 thread CPUs
-// pub const THREAD_COUNTS: [usize; 8] = [1, 2, 3, 4, 6, 8, 10, 12];
+pub const THREAD_COUNTS: [usize; 8] = [1, 2, 3, 4, 6, 8, 10, 12];
 
 pub const RUNS: usize = 50;
 
