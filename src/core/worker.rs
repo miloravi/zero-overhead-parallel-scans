@@ -30,6 +30,9 @@ impl<'a> Workers<'a> {
     let full = affinity::get_thread_affinity().unwrap();
     std::thread::scope(|s| {
       for (thread_index, worker) in workers.into_iter().enumerate() {
+        if thread_index >= AFFINITY_MAPPING.len() {
+          panic!("thread_index out of bounds: the len is {} but the index is {}", AFFINITY_MAPPING.len(), thread_index);
+        }
         affinity::set_thread_affinity([AFFINITY_MAPPING[thread_index]]).unwrap();
         let workers = Workers{
           is_finished: &is_finished,

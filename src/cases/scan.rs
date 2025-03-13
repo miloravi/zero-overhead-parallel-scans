@@ -10,12 +10,20 @@ pub mod our_reduce_then_scan;
 pub mod our_scan_then_propagate;
 mod reduce_then_scan;
 mod scan_then_propagate;
+mod our_half_sized_blocks;
+mod half_sized_blocks;
+mod half_sized_variant;
+mod no_lookback_chained;
+mod unchanged_half_sized;
+
 
 pub const SIZE: usize = 1024 * 1024 * 64;
 
 pub fn run(cpp_enabled: bool) {
   for size in [SIZE] {
     let temp = chained::create_temp();
+    let half_sized_temp = half_sized_blocks::create_temp(); //new temp for half_sized_blocks
+    
     let input = unsafe { utils::array::alloc_undef_u64_array(size) };
     let output = unsafe { utils::array::alloc_undef_u64_array(size) };
     fill(&input);
@@ -26,39 +34,44 @@ pub fn run(cpp_enabled: bool) {
         || {},
         || { reference_sequential_single(&input, &output) }
       )
-      .parallel("Scan-then-propagate", 3, Some(13), false, || {}, |thread_count| {
-        let task = scan_then_propagate::create_task(&input, &output);
+      .parallel("Unchanged half-sized", 3, None, false, || {}, |thread_count| {
+        let task = unchanged_half_sized::init_single(&input, &half_sized_temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Reduce-then-scan", 5, None, false, || {}, |thread_count| {
-        let task = reduce_then_scan::create_task(&input, &output);
-        Workers::run(thread_count, task);
-        compute_output(&output)
-      })
-      .parallel("Chained scan", 7, None, false, || {}, |thread_count| {
+      .parallel("Chained scan", 4, None, false, || {}, |thread_count| {
         let task = chained::init_single(&input, &temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Assisted scan-t.-prop.", 2, Some(12), true, || {}, |thread_count| {
-        let task = our_scan_then_propagate::create_task(&input, &output, None);
+      .parallel("Half-sized blocks", 5, None, false, || {}, |thread_count| {
+        let task = half_sized_blocks::init_single(&input, &half_sized_temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Assisted reduce-t.-scan", 4, None, true, || {}, |thread_count| {
-        let task = our_reduce_then_scan::create_task(&input, &output, None);
+      .parallel("Half-sized variant", 6, None, false, || {}, |thread_count| {
+        let task = half_sized_variant::init_single(&input, &half_sized_temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
-      .parallel("Adaptive chained scan", 6, None, true, || {}, |thread_count| {
+      .parallel("Adaptive chained scan", 7, None, true, || {}, |thread_count| {
         let task = our_chained::init_single(&input, &temp, &output);
+        Workers::run(thread_count, task);
+        compute_output(&output)
+      })
+      .parallel("Our Half-sized blocks", 8, None, true, || {}, |thread_count| {
+        let task = our_half_sized_blocks::init_single(&input, &half_sized_temp, &output);
+        Workers::run(thread_count, task);
+        compute_output(&output)
+      })
+      .parallel("No lookback chained scan", 9, None, true, || {}, |thread_count| {
+        let task = no_lookback_chained::init_single(&input, &temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-sequential", size)
       .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-tbb", size)
-      .cpp_parlay(cpp_enabled, "ParlayLib", 8, None, "scan-parlay", size);
+      .cpp_parlay(cpp_enabled, "ParlayLib", 2, None, "scan-parlay", size);
   }
 }
 

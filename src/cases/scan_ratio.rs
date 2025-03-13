@@ -1,5 +1,6 @@
 use core::sync::atomic::{Ordering, AtomicU64};
 use crate::core::worker::*;
+use crate::utils::benchmark::THREAD_COUNTS;
 use crate::utils;
 use crate::cases::scan;
 
@@ -46,7 +47,7 @@ pub fn run(cpp_enabled: bool, inplace: bool) {
 
   fn case<F: FnMut(usize) -> f32>(name: &str, mut f: F) {
     println!("{}:", name);
-    for thread_count in [1, 2, 3, 4, 6, 8, 10, 12, 14, 16] {
+    for thread_count in THREAD_COUNTS {
       let ratio = f(thread_count);
       println!("  {:02} threads {:.0}%", thread_count, ratio * 100.0);
     }

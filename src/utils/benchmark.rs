@@ -14,7 +14,12 @@ pub struct Benchmarker<T> {
   output: Vec<(String, u32, Option<u32>, bool, Vec<f32>)>
 }
 
+// Thread count for min 32 thread CPUs
 pub const THREAD_COUNTS: [usize; 14] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
+
+// Thread count for min 12 thread CPUs
+// pub const THREAD_COUNTS: [usize; 8] = [1, 2, 3, 4, 6, 8, 10, 12];
+
 pub const RUNS: usize = 50;
 
 #[derive(PartialEq, Eq, Copy, Clone)]
