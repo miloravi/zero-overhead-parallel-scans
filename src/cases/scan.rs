@@ -78,6 +78,8 @@ pub fn run(cpp_enabled: bool) {
 pub fn run_inplace(cpp_enabled: bool) {
   for size in [SIZE] {
     let temp = chained::create_temp();
+    let half_sized_temp = half_sized_blocks::create_temp();
+
     let values = unsafe { utils::array::alloc_undef_u64_array(size) };
     let name = "Prefix-sum inplace (n = ".to_owned() + &(size).to_formatted_string(&Locale::en) + ")";
     benchmark(
@@ -86,39 +88,44 @@ pub fn run_inplace(cpp_enabled: bool) {
         || { fill(&values) },
         || { reference_sequential_single(&values, &values) }
       )
-      .parallel("Scan-then-propagate", 3, Some(13), false, || { fill(&values) }, |thread_count| {
-        let task = scan_then_propagate::create_task(&values, &values);
+      .parallel("Unchanged half-sized", 3, None, false, || { fill(&values) }, |thread_count| {
+        let task = unchanged_half_sized::init_single(&values, &half_sized_temp, &values);
         Workers::run(thread_count, task);
         compute_output(&values)
       })
-      .parallel("Reduce-then-scan", 5, None, false, || { fill(&values) }, |thread_count| {
-        let task = reduce_then_scan::create_task(&values, &values);
-        Workers::run(thread_count, task);
-        compute_output(&values)
-      })
-      .parallel("Chained scan", 7, None, false, || { fill(&values) }, |thread_count| {
+      .parallel("Chained scan", 4, None, false, || { fill(&values) }, |thread_count| {
         let task = chained::init_single(&values, &temp, &values);
         Workers::run(thread_count, task);
         compute_output(&values)
       })
-      .parallel("Assisted scan-t.-prop.", 2, Some(12), true, || { fill(&values) }, |thread_count| {
-        let task = our_scan_then_propagate::create_task(&values, &values, None);
+      .parallel("Half-sized blocks", 5, None, false, || { fill(&values) }, |thread_count| {
+        let task = half_sized_blocks::init_single(&values, &half_sized_temp, &values);
         Workers::run(thread_count, task);
         compute_output(&values)
       })
-      .parallel("Assisted reduce-t.-scan", 4, None, true, || { fill(&values) }, |thread_count| {
-        let task = our_reduce_then_scan::create_task(&values, &values, None);
+      .parallel("Half-sized variant", 6, None, false, || { fill(&values) }, |thread_count| {
+        let task = half_sized_variant::init_single(&values, &half_sized_temp, &values);
         Workers::run(thread_count, task);
         compute_output(&values)
       })
-      .parallel("Adaptive chained scan", 6, None, true, || { fill(&values) }, |thread_count| {
+      .parallel("Adaptive chained scan", 7, None, true, || { fill(&values) }, |thread_count| {
         let task = our_chained::init_single(&values, &temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Our Half-sized blocks", 8, None, true, || { fill(&values) }, |thread_count| {
+        let task = our_half_sized_blocks::init_single(&values, &half_sized_temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("No lookback chained scan", 9, None, true, || { fill(&values) }, |thread_count| {
+        let task = no_lookback_chained::init_single(&values, &temp, &values);
         Workers::run(thread_count, task);
         compute_output(&values)
       })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-inplace-sequential", size)
       .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-inplace-tbb", size)
-      .cpp_parlay(cpp_enabled, "ParlayLib", 8, None, "scan-inplace-parlay", size);
+      .cpp_parlay(cpp_enabled, "ParlayLib", 2, None, "scan-inplace-parlay", size);
   }
 }
 

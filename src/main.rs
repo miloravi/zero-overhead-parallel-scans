@@ -12,7 +12,7 @@ fn main() {
   }
 
   cases::scan::run(cpp_enabled);
-  // cases::scan::run_inplace(cpp_enabled);
+  cases::scan::run_inplace(cpp_enabled);
   // cases::scan_ratio::run(cpp_enabled, false);
   // cases::scan_ratio::run(cpp_enabled, true);
   // cases::compact::run(cpp_enabled);
