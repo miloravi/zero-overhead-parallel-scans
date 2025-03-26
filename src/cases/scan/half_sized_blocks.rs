@@ -67,7 +67,7 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
   
   // Update this after every loop
   let mut unfinished_index: Option::<u32> = None;
-  // Maybe only safe the index of the unfinished block, not the start and end if that is more efficient
+
   let mut unfinished_start = 0;
   let mut unfinished_end = 0;
   let mut unfinished_local = 0;

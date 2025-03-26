@@ -4,13 +4,13 @@ use crate::core::worker::*;
 use crate::utils;
 use crate::utils::benchmark::{benchmark, ChartStyle};
 
+mod unchanged_half_sized;
 mod chained;
 mod our_chained;
-mod our_half_sized_blocks;
 mod half_sized_blocks;
+mod our_half_sized_blocks;
 mod half_sized_variant;
 mod no_lookback_chained;
-mod unchanged_half_sized;
 
 
 pub const SIZE: usize = 1024 * 1024 * 64;
