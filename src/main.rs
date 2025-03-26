@@ -11,7 +11,7 @@ fn main() {
     println!("Running the benchmarks without the C++ and oneTBB implementations.");
   }
 
-  cases::scan::run(cpp_enabled);
+  // cases::scan::run(cpp_enabled);
   cases::scan::run_inplace(cpp_enabled);
   // cases::scan_ratio::run(cpp_enabled, false);
   // cases::scan_ratio::run(cpp_enabled, true);

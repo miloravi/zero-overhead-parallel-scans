@@ -14,10 +14,6 @@ pub fn init_single(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]
   create_task(input, temp, output)
 }
 
-//pub const STATE_INITIALIZED: u64 = 0;
-// pub const STATE_AGGREGATE_AVAILABLE: u64 = 1;
-// pub const STATE_PREFIX_AVAILABLE: u64 = 2;
-
 struct Data<'a> {
   input: &'a [AtomicU64],
   temp: &'a [BlockInfo],
@@ -37,8 +33,8 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
 
   // Maybe only safe the index of the unfinished block, not the start and end if that is more efficient
   let mut unfinished_start = 0;
-  let mut unfininshed_end = 0;
-  let mut unfinshed_local = 0;
+  let mut unfinished_end = 0;
+  let mut unfinished_local = 0;
 
   workassisting_loop!(loop_arguments, |block_index| {
     // reduce-then-scan
@@ -74,43 +70,49 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
       data.temp[block_index as usize].state.store(STATE_AGGREGATE_AVAILABLE, Ordering::Release);
 
       // Check if it has an unfinished block, should only be here if not sequential
-      match unfinished_index {
-        Some(u_index) => {
-          // Find aggregate
-        let mut aggregate = 0;
-        let mut previous = u_index - 1;
-  
-        loop {
-          let previous_state = data.temp[previous as usize].state.load(Ordering::Acquire);
-          if previous_state == STATE_PREFIX_AVAILABLE {
-            aggregate = data.temp[previous as usize].prefix.load(Ordering::Acquire) + aggregate;
-            break;
-          } else if previous_state == STATE_AGGREGATE_AVAILABLE {
-            aggregate = data.temp[previous as usize].aggregate.load(Ordering::Acquire) + aggregate;
-            previous = previous - 1;
-          } else {
-            // Continue looping until the state of previous block changes.
-          }
-        }
-  
-        // Make aggregate available of unfinished block
-        data.temp[u_index as usize].prefix.store(aggregate + unfinshed_local, Ordering::Relaxed);
-        data.temp[u_index as usize].state.store(STATE_PREFIX_AVAILABLE, Ordering::Release);
-  
-        // Scan unfinished block
-        scan_sequential(&data.input[unfinished_start .. unfininshed_end], aggregate, &data.output[unfinished_start .. unfininshed_end]);
-        }
-        None => {}
+      if let Some(u_index) = unfinished_index {
+        process_unfinished_block(data, u_index, unfinished_start, unfinished_end, unfinished_local);
       }
       
          // Replace unfinished block with current block
          unfinished_index = Some(block_index);
 
          unfinished_start = start;
-         unfininshed_end = end;
-         unfinshed_local = local;
+         unfinished_end = end;
+         unfinished_local = local;
     }
   });
+
+  // Perform last unfinished block
+  if let Some(u_index) = unfinished_index {
+    process_unfinished_block(data, u_index, unfinished_start, unfinished_end, unfinished_local);
+  }
+}
+
+fn process_unfinished_block(data: &Data, u_index: u32, unfinished_start: usize, unfinished_end: usize, unfinished_local: u64) {
+  // Find aggregate
+  let mut aggregate = 0;
+  let mut previous = u_index - 1;
+
+  loop {
+    let previous_state = data.temp[previous as usize].state.load(Ordering::Acquire);
+    if previous_state == STATE_PREFIX_AVAILABLE {
+      aggregate = data.temp[previous as usize].prefix.load(Ordering::Acquire) + aggregate;
+      break;
+    } else if previous_state == STATE_AGGREGATE_AVAILABLE {
+      aggregate = data.temp[previous as usize].aggregate.load(Ordering::Acquire) + aggregate;
+      previous = previous - 1;
+    } else {
+      // Continue looping until the state of previous block changes.
+    }
+  }
+
+  // Make aggregate available of unfinished block
+  data.temp[u_index as usize].prefix.store(aggregate + unfinished_local, Ordering::Relaxed);
+  data.temp[u_index as usize].state.store(STATE_PREFIX_AVAILABLE, Ordering::Release);
+
+  // Scan unfinished block
+  scan_sequential(&data.input[unfinished_start .. unfinished_end], aggregate, &data.output[unfinished_start .. unfinished_end]);
 }
 
 fn finish(workers: &Workers, task: *mut TaskObject<Data>) {
