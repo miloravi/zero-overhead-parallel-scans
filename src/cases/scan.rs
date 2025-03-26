@@ -6,10 +6,6 @@ use crate::utils::benchmark::{benchmark, ChartStyle};
 
 mod chained;
 mod our_chained;
-pub mod our_reduce_then_scan;
-pub mod our_scan_then_propagate;
-mod reduce_then_scan;
-mod scan_then_propagate;
 mod our_half_sized_blocks;
 mod half_sized_blocks;
 mod half_sized_variant;
@@ -103,26 +99,26 @@ pub fn run_inplace(cpp_enabled: bool) {
         Workers::run(thread_count, task);
         compute_output(&values)
       })
-      // .parallel("Half-sized variant", 6, None, false, || { fill(&values) }, |thread_count| {
-      //   let task = half_sized_variant::init_single(&values, &half_sized_temp, &values);
-      //   Workers::run(thread_count, task);
-      //   compute_output(&values)
-      // })
-      // .parallel("Adaptive chained scan", 7, None, true, || { fill(&values) }, |thread_count| {
-      //   let task = our_chained::init_single(&values, &temp, &values);
-      //   Workers::run(thread_count, task);
-      //   compute_output(&values)
-      // })
-      // .parallel("Our Half-sized blocks", 8, None, true, || { fill(&values) }, |thread_count| {
-      //   let task = our_half_sized_blocks::init_single(&values, &half_sized_temp, &values);
-      //   Workers::run(thread_count, task);
-      //   compute_output(&values)
-      // })
-      // .parallel("No lookback chained scan", 9, None, true, || { fill(&values) }, |thread_count| {
-      //   let task = no_lookback_chained::init_single(&values, &temp, &values);
-      //   Workers::run(thread_count, task);
-      //   compute_output(&values)
-      // })
+      .parallel("Half-sized variant", 6, None, false, || { fill(&values) }, |thread_count| {
+        let task = half_sized_variant::init_single(&values, &half_sized_temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Adaptive chained scan", 7, None, true, || { fill(&values) }, |thread_count| {
+        let task = our_chained::init_single(&values, &temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("Our Half-sized blocks", 8, None, true, || { fill(&values) }, |thread_count| {
+        let task = our_half_sized_blocks::init_single(&values, &half_sized_temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
+      .parallel("No lookback chained scan", 9, None, true, || { fill(&values) }, |thread_count| {
+        let task = no_lookback_chained::init_single(&values, &temp, &values);
+        Workers::run(thread_count, task);
+        compute_output(&values)
+      })
       .cpp_sequential(cpp_enabled, "Reference C++", "scan-inplace-sequential", size)
       .cpp_tbb(cpp_enabled, "oneTBB", 1, None, "scan-inplace-tbb", size)
       .cpp_parlay(cpp_enabled, "ParlayLib", 2, None, "scan-inplace-parlay", size);
