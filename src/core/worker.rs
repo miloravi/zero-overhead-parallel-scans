@@ -4,7 +4,7 @@ use crossbeam::deque;
 use crate::core::task::*;
 use crate::utils::ptr::AtomicTaggedPtr;
 use crate::utils::ptr::TaggedPtr;
-use crate::utils::thread_management::AFFINITY_MAPPING;
+use crate::utils::global_constants::AFFINITY_MAPPING;
 
 pub struct Workers<'a> {
   is_finished: &'a AtomicBool,

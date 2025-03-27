@@ -14,6 +14,6 @@ In general our *adaptive chained scan* is the fastest parallel scan, but in spec
 The scan algorithms are implemented using the [work-assisting scheduler](https://github.com/ivogabe/workassisting), but could also be applied with other schedulers.
 
 ## Instructions
-To run the benchmarks, the Rust compiler and cargo need to be installed. Furthermore gnuplot needs to be installed, as the benchmark code automatically generates charts of the results. The benchmarks can be run with `cargo run`. The generated charts and tables are placed in `./results`. Depending on the processor, it may be needed to tune `AFFINITY_MAPPING` in `./src/utils/thread_pinning.rs`. This specifies the order in which the cores of the processor are used.
+To run the benchmarks, the Rust compiler and cargo need to be installed. Furthermore gnuplot needs to be installed, as the benchmark code automatically generates charts of the results. The benchmarks can be run with `cargo run`. The generated charts and tables are placed in `./results`. Depending on the processor, it may be needed to tune `AFFINITY_MAPPING` and `THREAD_COUNTS` in `./src/utils/thread_management.rs`. This specifies the order in which the cores of the processor are used, and what number of cores will be benchmarked.
 
 The program will ask if a sequential implementation in C++ and parallel implementations in oneTBB and ParlayLib should be enabled. This requires Linux, clang++, cmake and git. When enabled, it will automatically download and install oneTBB and ParlayLib locally in `./reference-cpp`.

@@ -4,6 +4,7 @@ use num_format::{Locale, ToFormattedString};
 use crate::core::worker::*;
 use crate::utils;
 use crate::utils::benchmark::{benchmark_with_max_speedup, ChartStyle};
+use crate::utils::global_constants::{ COMP_MAX_SPEEDUP, COMP_MAX_THREADS};
 
 mod unchanged_half_sized;
 mod chained;
@@ -35,8 +36,8 @@ pub fn run(cpp_enabled: bool) {
           &name,
           || {},
           || reference_sequential_single(mask, &input, &output),
-          32,
-          6
+          COMP_MAX_THREADS,
+          COMP_MAX_SPEEDUP
         )
         .parallel("Unchanged half-sized", 3, None, false, || {}, |thread_count| {
           let output_count = AtomicUsize::new(0);

@@ -2,7 +2,7 @@ use core::fmt::Debug;
 use std::time;
 use std::fs::File;
 use std::io::{prelude::*, BufWriter};
-use crate::utils::thread_management::THREAD_COUNTS;
+use crate::utils::global_constants::{ THREAD_COUNTS, MAX_THREADS, MAX_SPEEDUP };
 
 pub struct Benchmarker<T> {
   chart_style: ChartStyle,
@@ -24,7 +24,7 @@ pub enum ChartStyle {
 }
 
 pub fn benchmark<T: Debug + Eq, P: FnMut() -> (), Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, prepare: P, reference: Ref) -> Benchmarker<T> {
-  benchmark_with_max_speedup(chart_style, name, prepare, reference, 16, 6)
+  benchmark_with_max_speedup(chart_style, name, prepare, reference, MAX_THREADS, MAX_SPEEDUP)
 }
 
 pub fn benchmark_with_max_speedup<T: Debug + Eq, P: FnMut() -> (), Ref: FnMut() -> T>(chart_style: ChartStyle, name: &str, prepare: P, reference: Ref, max_threads: u32, max_speedup: u32) -> Benchmarker<T> {
