@@ -1,12 +1,10 @@
 use core::sync::atomic::{Ordering, AtomicU64};
 use crate::cases::scan::fold_sequential;
 use crate::cases::scan::scan_sequential;
-use crate::cases::scan::half_sized_blocks::{ BlockInfo, reset, STATE_PREFIX_AVAILABLE, STATE_AGGREGATE_AVAILABLE };
+use crate::cases::scan::half_sized_blocks::{ BLOCK_SIZE, BlockInfo, reset, STATE_PREFIX_AVAILABLE, STATE_AGGREGATE_AVAILABLE};
 use crate::core::worker::*;
 use crate::core::task::*;
 use crate::core::workassisting_loop::*;
-
-const BLOCK_SIZE: u64 = 1024 * 2; // half sized blocks?
 
 // with only 1 thread?
 pub fn init_single(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]) -> Task {
@@ -89,6 +87,7 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
   }
 }
 
+#[inline(always)]
 fn process_unfinished_block(data: &Data, u_index: u32, unfinished_start: usize, unfinished_end: usize, unfinished_local: u64) {
   // Find aggregate
   let mut aggregate = 0;

@@ -6,9 +6,9 @@ use crate::core::task::*;
 use crate::core::workassisting_loop::*;
 
 pub const SIZE: usize = crate::cases::scan::SIZE;
-const BLOCK_SIZE: u64 = 1024 * 2; // half_size_blocks
+pub const BLOCK_SIZE: u64 = 1024 * 2; // half_size_blocks
 
-// temp now twice as big, rounded up I guess, initialize everything as atomic 0
+// temp twice as large compared to chained
 pub fn create_temp() -> Box<[BlockInfo]> {
   (0 .. (SIZE as u64 + BLOCK_SIZE - 1) / BLOCK_SIZE)
   .map(|_| BlockInfo{
@@ -34,7 +34,7 @@ pub fn init_single(input: &[AtomicU64], temp: &[BlockInfo], output: &[AtomicU64]
   create_task(input, temp, output)
 }
 
-struct Data<'a> {
+pub struct Data<'a> {
   input: &'a [AtomicU64],
   temp: &'a [BlockInfo],
   output: &'a [AtomicU64]
@@ -67,7 +67,6 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
   
   // Update this after every loop
   let mut unfinished_index: Option::<u32> = None;
-
   let mut unfinished_start = 0;
   let mut unfinished_end = 0;
   let mut unfinished_local = 0;
@@ -109,6 +108,7 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
   }
 }
 
+#[inline(always)]
 fn process_unfinished_block(data: &Data, u_index: u32, unfinished_start: usize, unfinished_end: usize, unfinished_local: u64) {
   // Find aggregate
   let mut aggregate = 0;

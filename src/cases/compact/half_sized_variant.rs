@@ -88,6 +88,7 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
   }
 }
 
+#[inline(always)]
 fn process_unfinished_block(data: &Data, u_index: u32, unfinished_start: usize, unfinished_end: usize, unfinished_local: usize) {
   // Find aggregate
   let mut aggregate = 0;

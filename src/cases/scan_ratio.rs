@@ -1,6 +1,6 @@
 use core::sync::atomic::{Ordering, AtomicU64};
 use crate::core::worker::*;
-use crate::utils::benchmark::THREAD_COUNTS;
+// use crate::utils::benchmark::THREAD_COUNTS;
 use crate::utils;
 use crate::cases::scan;
 

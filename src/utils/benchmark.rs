@@ -2,6 +2,7 @@ use core::fmt::Debug;
 use std::time;
 use std::fs::File;
 use std::io::{prelude::*, BufWriter};
+use crate::utils::thread_management::THREAD_COUNTS;
 
 pub struct Benchmarker<T> {
   chart_style: ChartStyle,
@@ -13,12 +14,6 @@ pub struct Benchmarker<T> {
   expected: T,
   output: Vec<(String, u32, Option<u32>, bool, Vec<f32>)>
 }
-
-// Thread count for min 32 thread CPUs
-// pub const THREAD_COUNTS: [usize; 12] = [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32];
-
-// Thread count for min 12 thread CPUs
-pub const THREAD_COUNTS: [usize; 8] = [1, 2, 3, 4, 6, 8, 10, 12];
 
 pub const RUNS: usize = 50;
 
