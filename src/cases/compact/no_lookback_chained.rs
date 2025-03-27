@@ -3,12 +3,36 @@ use crate::cases::compact::{compact_sequential, count_sequential};
 use crate::core::worker::*;
 use crate::core::task::*;
 use crate::core::workassisting_loop::*;
-use crate::cases::compact::chained::{ Data, BlockInfo, reset, BLOCK_SIZE, STATE_AGGREGATE_AVAILABLE, STATE_PREFIX_AVAILABLE, STATE_INITIALIZED };
+use crate::cases::compact::chained::BLOCK_SIZE;
 
 pub fn create_temp(size: usize) -> Box<[BlockInfo]> {
   (0 .. (size as u64 + BLOCK_SIZE - 1) / BLOCK_SIZE).map(|_| BlockInfo{
-    state: AtomicU64::new(STATE_INITIALIZED), aggregate: AtomicUsize::new(0), prefix: AtomicUsize::new(0)
+    state: AtomicU64::new(STATE_INITIALIZED), prefix: AtomicUsize::new(0)
   }).collect()
+}
+
+pub fn reset(temp: &[BlockInfo]) {
+  for i in 0 .. temp.len() {
+    temp[i].state.store(STATE_INITIALIZED, Ordering::Relaxed);
+    temp[i].prefix.store(0, Ordering::Relaxed);
+  }
+}
+
+pub struct BlockInfo {
+  pub state: AtomicU64,
+  pub prefix: AtomicUsize
+}
+
+pub const STATE_INITIALIZED: u64 = 0;
+pub const STATE_PREFIX_AVAILABLE: u64 = 2;
+
+#[derive(Copy, Clone)]
+struct Data<'a> {
+  pub mask: u64,
+  pub input: &'a [u64],
+  pub temp: &'a [BlockInfo],
+  pub output: &'a [AtomicU64],
+  pub output_count: &'a AtomicUsize
 }
 
 pub fn create_task(mask: u64, input: &[u64], temp: &[BlockInfo], output: &[AtomicU64], output_count: &AtomicUsize) -> Task {
@@ -31,17 +55,15 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
     } else {
       let local = count_sequential(data.mask, &data.input[start .. end]);
       // Share own local value
-      data.temp[block_index as usize].aggregate.store(local, Ordering::Relaxed);
-      data.temp[block_index as usize].state.store(STATE_AGGREGATE_AVAILABLE, Ordering::Release);
 
       // Find aggregate
-      let mut aggregate = 0;
-      let mut previous = block_index - 1;
+      let prefix;
+      let previous = block_index - 1;
 
       loop {
         let previous_state = data.temp[previous as usize].state.load(Ordering::Acquire);
         if previous_state == STATE_PREFIX_AVAILABLE {
-          aggregate = data.temp[previous as usize].prefix.load(Ordering::Acquire) + aggregate;
+          prefix = data.temp[previous as usize].prefix.load(Ordering::Acquire);
           break;
         } else {
           // Continue looping until the state of previous block changes.
@@ -49,9 +71,9 @@ fn run(_workers: &Workers, task: *const TaskObject<Data>, loop_arguments: LoopAr
       }
 
       // Make aggregate available
-      data.temp[block_index as usize].prefix.store(aggregate + local, Ordering::Relaxed);
+      data.temp[block_index as usize].prefix.store(prefix + local, Ordering::Relaxed);
       data.temp[block_index as usize].state.store(STATE_PREFIX_AVAILABLE, Ordering::Release);
-      compact_sequential(data.mask, &data.input[start .. end], data.output, aggregate as usize);
+      compact_sequential(data.mask, &data.input[start .. end], data.output, prefix as usize);
     }
   });
 }

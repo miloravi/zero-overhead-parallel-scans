@@ -18,6 +18,7 @@ pub const SIZE: usize = 1024 * 1024 * 64;
 pub fn run(cpp_enabled: bool) {
   for size in [SIZE] {
     let temp = chained::create_temp();
+    let no_lookback_temp = no_lookback_chained::create_temp();
     let half_sized_temp = half_sized_blocks::create_temp(); //new temp for half_sized_blocks
     
     let input = unsafe { utils::array::alloc_undef_u64_array(size) };
@@ -61,7 +62,7 @@ pub fn run(cpp_enabled: bool) {
         compute_output(&output)
       })
       .parallel("No lookback chained scan", 9, None, true, || {}, |thread_count| {
-        let task = no_lookback_chained::init_single(&input, &temp, &output);
+        let task = no_lookback_chained::init_single(&input, &no_lookback_temp, &output);
         Workers::run(thread_count, task);
         compute_output(&output)
       })
@@ -74,6 +75,7 @@ pub fn run(cpp_enabled: bool) {
 pub fn run_inplace(cpp_enabled: bool) {
   for size in [SIZE] {
     let temp = chained::create_temp();
+    let no_lookback_temp = no_lookback_chained::create_temp();
     let half_sized_temp = half_sized_blocks::create_temp();
 
     let values = unsafe { utils::array::alloc_undef_u64_array(size) };
@@ -115,7 +117,7 @@ pub fn run_inplace(cpp_enabled: bool) {
         compute_output(&values)
       })
       .parallel("No lookback chained scan", 9, None, true, || { fill(&values) }, |thread_count| {
-        let task = no_lookback_chained::init_single(&values, &temp, &values);
+        let task = no_lookback_chained::init_single(&values, &no_lookback_temp, &values);
         Workers::run(thread_count, task);
         compute_output(&values)
       })

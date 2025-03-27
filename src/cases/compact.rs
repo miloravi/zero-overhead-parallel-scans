@@ -23,6 +23,7 @@ pub fn run(cpp_enabled: bool) {
       let input = create_input(size);
       // Array to store the aggregates of all blocks
       let temp = chained::create_temp(size);
+      let no_lookback_temp = no_lookback_chained::create_temp(size);
       let half_sized_temp = unchanged_half_sized::create_temp(size);
 
 
@@ -75,7 +76,7 @@ pub fn run(cpp_enabled: bool) {
         })
         .parallel("No lookback chained scan", 9, None, false, || {}, |thread_count| {
           let output_count = AtomicUsize::new(0);
-          let task = no_lookback_chained::create_task(mask, &input, &temp, &output, &output_count);
+          let task = no_lookback_chained::create_task(mask, &input, &no_lookback_temp, &output, &output_count);
           Workers::run(thread_count, task);
           compute_output(&output, output_count.load(Ordering::Relaxed))
         })
